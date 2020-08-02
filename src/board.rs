@@ -2,10 +2,6 @@
 pub struct Board([u8; 81]);
 
 impl Board {
-    pub fn new() -> Self {
-        Self([0; 81])
-    }
-
     fn initialize_base() -> Self {
         Self([
             1, 2, 3, 4, 5, 6, 7, 8, 9, 4, 5, 6, 7, 8, 9, 1, 2, 3, 7, 8, 9, 1, 2, 3, 4, 5, 6, 2, 3,
@@ -14,7 +10,7 @@ impl Board {
         ])
     }
 
-    pub fn initialize() -> Self {
+    pub fn new() -> Self {
         use rand::Rng;
         let mut board = Self::initialize_base();
         let mut rng = rand::thread_rng();
@@ -38,18 +34,18 @@ impl Board {
         self.0[coordinate.as_linear()]
     }
 
-    fn set(&mut self, coordinate: Coordinate, value: u8) {
+    pub fn set(&mut self, coordinate: Coordinate, value: u8) {
         if value < 1 || value > 9 {
             panic!("Invalid value: {}", value);
         }
         self.0[coordinate.as_linear()] = value;
     }
 
-    fn clear(&mut self, coordinate: Coordinate) {
+    pub fn clear(&mut self, coordinate: Coordinate) {
         self.0[coordinate.as_linear()] = 0;
     }
 
-    fn consistent(&self, coordinate: Coordinate) -> bool {
+    pub fn consistent(&self, coordinate: Coordinate) -> bool {
         let reference = self.get(coordinate);
         if reference == 0 {
             return true;
@@ -91,7 +87,7 @@ impl Board {
         true
     }
 
-    fn list_inconsistencies(&self) -> Vec<Coordinate> {
+    pub fn list_inconsistencies(&self) -> Vec<Coordinate> {
         let mut inconsistencies = Vec::new();
         for row in 0..9 {
             for col in 0..9 {
@@ -216,6 +212,27 @@ impl Board {
             self.0[row2 + col] = other[row1 + col];
             self.0[row2 + col] = other[row1 + col];
         }
+    }
+}
+
+impl std::fmt::Display for Board {
+    fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        writeln!(fmt, "┏━━━━━┯━━━━━┯━━━━━┓")?;
+        for col in 0..9 {
+            write!(fmt, "┃")?;
+            for row in 0..8 {
+                if row % 3 == 2 {
+                    write!(fmt, "{}│", self.get(Coordinate { row, col }))?;
+                } else {
+                    write!(fmt, "{} ", self.get(Coordinate { row, col }))?;
+                }
+            }
+            writeln!(fmt, "{}┃", self.get(Coordinate { row: 8, col }))?;
+            if col < 8 && col % 3 == 2 {
+                writeln!(fmt, "┠─────┼─────┼─────┨")?;
+            }
+        }
+        writeln!(fmt, "┗━━━━━┷━━━━━┷━━━━━┛")
     }
 }
 
@@ -461,7 +478,7 @@ mod test {
     fn swap_columns() {
         let mut board = sequential_board();
         board.swap_columns(0, 2);
-        let mut expected = sequential_board();
+        let expected = sequential_board();
 
         for row in 0..9 {
             for col in 0..9 {
@@ -489,7 +506,7 @@ mod test {
     fn swap_rows() {
         let mut board = sequential_board();
         board.swap_rows(0, 2);
-        let mut expected = sequential_board();
+        let expected = sequential_board();
 
         for row in 0..9 {
             for col in 0..9 {
@@ -518,7 +535,7 @@ mod test {
         let mut board = sequential_board();
         board.swap_column_cluster(2);
         board.swap_column_cluster(1);
-        let mut expected = sequential_board();
+        let expected = sequential_board();
 
         for row in 0..9 {
             for col_index in 0..9 {
@@ -536,7 +553,7 @@ mod test {
         let mut board = sequential_board();
         board.swap_row_cluster(2);
         board.swap_row_cluster(1);
-        let mut expected = sequential_board();
+        let expected = sequential_board();
 
         for row_index in 0..9 {
             for col in 0..9 {
@@ -610,207 +627,3 @@ mod test {
         assert_eq!(board.list_inconsistencies().len(), 0);
     }
 }
-
-// swapRowClusters(pivot: number) {
-//   let i1 = ((pivot + 1) % 3) * 3
-//   let i2 = ((pivot + 2) % 3) * 3
-
-//   this.swapRowsByIndex(i1, i2)
-//   this.swapRowsByIndex(i1 + 1, i2 + 1)
-//   this.swapRowsByIndex(i1 + 2, i2 + 2)
-// }
-
-// swapColumnClusters(pivot: number) {
-//   let i1 = ((pivot + 1) % 3) * 3
-//   let i2 = ((pivot + 2) % 3) * 3
-
-//   this.swapColumnsByIndex(i1, i2)
-//   this.swapColumnsByIndex(i1 + 1, i2 + 1)
-//   this.swapColumnsByIndex(i1 + 2, i2 + 2)
-// }
-
-// private swapRowsByIndex(index1: number, index2: number) {
-//   let temp = this.getRow(index1)
-//   this.setRow(index1, this.getRow(index2))
-//   this.setRow(index2, temp)
-// }
-
-// private swapColumnsByIndex(index1: number, index2: number) {
-//   let temp = this.getColumn(index1)
-//   this.setColumn(index1, this.getColumn(index2))
-//   this.setColumn(index2, temp)
-// }
-// }
-
-/*
-import Coordinate from './Coordinate'
-
-export default class Matrix {
-  private board: number[]
-
-  constructor(matrix?: Matrix) {
-    if (matrix) {
-      this.board = Array.from(matrix.board)
-    } else {
-      this.board = [
-        0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0,
-      ]
-    }
-  }
-
-  from(board: number[]) {
-    this.board = board
-    return this
-  }
-
-  initialize() {
-    this.board = [
-      1, 2, 3, 4, 5, 6, 7, 8, 9,
-      4, 5, 6, 7, 8, 9, 1, 2, 3,
-      7, 8, 9, 1, 2, 3, 4, 5, 6,
-      2, 3, 4, 5, 6, 7, 8, 9, 1,
-      5, 6, 7, 8, 9, 1, 2, 3, 4,
-      8, 9, 1, 2, 3, 4, 5, 6, 7,
-      3, 4, 5, 6, 7, 8, 9, 1, 2,
-      6, 7, 8, 9, 1, 2, 3, 4, 5,
-      9, 1, 2, 3, 4, 5, 6, 7, 8,
-    ]
-  }
-
-  getRow(index: number): number[] {
-    return Array.from(Array(9), (v, i) => this.board[index * 9 + i])
-  }
-
-  setRow(index: number, row: number[]) {
-    row.forEach((v, i) => this.board[index * 9 + i] = v)
-  }
-
-  getColumn(index: number): number[] {
-    return Array.from(Array(9), (v, i) => this.board[i * 9 + index])
-  }
-
-  setColumn(index: number, column: number[]) {
-    column.forEach((v, i) => this.board[i * 9 + index] = v)
-  }
-
-  getCluster(index: number): number[] {
-    return Array.from(Array(9), (v, i) => this.board[i % 3 + Math.floor(i / 3) * 9 + (index % 3) * 3 + Math.floor(index / 3) * 27])
-  }
-
-  setCluster(index: number, cluster: number[]) {
-    cluster.forEach((v, i) => this.board[i % 3 + Math.floor(i / 3) * 9 + (index % 3) * 3 + Math.floor(index / 3) * 27] = v)
-  }
-
-  getValue(index: Coordinate) {
-    return this.board[index.row * 9 + index.column]
-  }
-
-  setValue(index: Coordinate, value: number) {
-    this.board[index.row * 9 + index.column] = value
-  }
-
-  reverse() {
-    this.board = this.board.reverse()
-  }
-
-  rotate() {
-    this.board = Array.from(Array(9), (v, i) => this.getColumn(8 - i)).flat()
-  }
-
-  mirrowRows() {
-    this.reverse()
-    this.board = Array.from(Array(9), (v, i) => this.getRow(8 - i)).flat()
-  }
-
-  mirrorColumns() {
-    this.board = Array.from(Array(9), (v, i) => this.getRow(8 - i)).flat()
-  }
-
-  swapRows(cluster: number, pivot: number) {
-    this.swapRowsByIndex(((pivot + 1) % 3) + cluster * 3, ((pivot + 2) % 3) + cluster * 3)
-  }
-
-  swapColumns(cluster: number, pivot: number) {
-    this.swapColumnsByIndex(((pivot + 1) % 3) + cluster * 3, ((pivot + 2) % 3) + cluster * 3)
-  }
-
-  swapRowClusters(pivot: number) {
-    let i1 = ((pivot + 1) % 3) * 3
-    let i2 = ((pivot + 2) % 3) * 3
-
-    this.swapRowsByIndex(i1, i2)
-    this.swapRowsByIndex(i1 + 1, i2 + 1)
-    this.swapRowsByIndex(i1 + 2, i2 + 2)
-  }
-
-  swapColumnClusters(pivot: number) {
-    let i1 = ((pivot + 1) % 3) * 3
-    let i2 = ((pivot + 2) % 3) * 3
-
-    this.swapColumnsByIndex(i1, i2)
-    this.swapColumnsByIndex(i1 + 1, i2 + 1)
-    this.swapColumnsByIndex(i1 + 2, i2 + 2)
-  }
-
-  private swapRowsByIndex(index1: number, index2: number) {
-    let temp = this.getRow(index1)
-    this.setRow(index1, this.getRow(index2))
-    this.setRow(index2, temp)
-  }
-
-  private swapColumnsByIndex(index1: number, index2: number) {
-    let temp = this.getColumn(index1)
-    this.setColumn(index1, this.getColumn(index2))
-    this.setColumn(index2, temp)
-  }
-
-  clone() {
-    return new Matrix(this)
-  }
-
-  equals(other: Matrix) {
-    for (let i = 0; i < this.board.length; i++) {
-      if (this.board[i] !== other.board[i]) {
-        return false;
-      }
-    }
-
-    return true;
-  }
-
-  toString() {
-    return '|' + this.board.reduce((s, v, i, a) => {
-      if (i > 0) {
-        if (i % 3 === 0) {
-          s += ' |'
-        }
-
-        if (i % 9 === 0) {
-          s += '\n|'
-        }
-      }
-
-      return s + ' ' + a[i]
-    }, '') + ' |'
-  }
-
-  print() {
-    return this.board.reduce((s, v, i, a) => {
-      if (i > 0) {
-        return s + ',' + (a[i] > 0 ? a[i] : ' ')
-      } else {
-        return s + (a[i] > 0 ? a[i] : ' ')
-      }
-    }, '[') + ']'
-  }
-}
-
-*/

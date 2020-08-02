@@ -1,7 +1,7 @@
 mod board;
 
 fn main() {
-    let board = board::Board::initialize();
-    println!("{:?}", board);
+    let board = board::Board::new();
+    println!("{}", board);
     println!("Hello, world!");
 }
