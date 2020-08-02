@@ -6,7 +6,7 @@ impl Board {
         Self([0; 81])
     }
 
-    pub fn initialize() -> Self {
+    pub fn initialize(shuffles: u8) -> Self {
         let board = Self([
             1, 2, 3, 4, 5, 6, 7, 8, 9, 4, 5, 6, 7, 8, 9, 1, 2, 3, 7, 8, 9, 1, 2, 3, 4, 5, 6, 2, 3,
             4, 5, 6, 7, 8, 9, 1, 5, 6, 7, 8, 9, 1, 2, 3, 4, 8, 9, 1, 2, 3, 4, 5, 6, 7, 3, 4, 5, 6,
@@ -36,32 +36,54 @@ impl Board {
             return true;
         }
 
-        for (index, value) in self.0.row(coordinate.row).enumerate() {
-            if index == usize::from(coordinate.row) {
-                continue;
-            }
-
+        let mut found = false;
+        for value in self.0.row(coordinate.row) {
             if value == reference {
-                return false;
+                if found {
+                    return false;
+                } else {
+                    found = true;
+                }
             }
         }
 
-        for (index, value) in self.0.column(coordinate.col).enumerate() {
-            if index == usize::from(coordinate.col) {
-                continue;
-            }
-
+        let mut found = false;
+        for value in self.0.column(coordinate.col) {
             if value == reference {
-                return false;
+                if found {
+                    return false;
+                } else {
+                    found = true;
+                }
+            }
+        }
+
+        let mut found = false;
+        for value in self.0.cluster(coordinate.row / 3 + coordinate.col / 3) {
+            if value == reference {
+                if found {
+                    return false;
+                } else {
+                    found = true;
+                }
             }
         }
 
         true
     }
 
-    // fn list_inconsistencies(&self) -> Vec<Coordinate> {
-    //     vec![]
-    // }
+    fn list_inconsistencies(&self) -> Vec<Coordinate> {
+        let mut inconsistencies = Vec::new();
+        for row in 0..9 {
+            for col in 0..9 {
+                let coordinate = Coordinate { row, col };
+                if !self.consistent(coordinate) {
+                    inconsistencies.push(coordinate);
+                }
+            }
+        }
+        inconsistencies
+    }
 
     fn reverse(&mut self) {
         let temp = self.0.clone();
@@ -221,7 +243,6 @@ impl IntoClusterIterator for [u8; 81] {
         }
         let col = 3 * (index % 3);
         let row = 3 * (index / 3);
-        println!("{}", row * 9 + col);
         ClusterIterator {
             board: &self,
             base: usize::from(row * 9 + col),
@@ -383,6 +404,20 @@ mod test {
                 assert_eq!(value, expected);
             }
         }
+    }
+
+    #[test]
+    fn consistent() {
+        let mut board = Board::initialize(0);
+        assert_eq!(board.list_inconsistencies().len(), 0);
+        board.reverse();
+        assert_eq!(board.list_inconsistencies().len(), 0);
+        board.rotate();
+        assert_eq!(board.list_inconsistencies().len(), 0);
+        board.mirror_columns();
+        assert_eq!(board.list_inconsistencies().len(), 0);
+        board.mirror_rows();
+        assert_eq!(board.list_inconsistencies().len(), 0);
     }
 }
 
