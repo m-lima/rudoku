@@ -6,12 +6,31 @@ impl Board {
         Self([0; 81])
     }
 
-    pub fn initialize(shuffles: u8) -> Self {
-        let board = Self([
+    fn initialize_base() -> Self {
+        Self([
             1, 2, 3, 4, 5, 6, 7, 8, 9, 4, 5, 6, 7, 8, 9, 1, 2, 3, 7, 8, 9, 1, 2, 3, 4, 5, 6, 2, 3,
             4, 5, 6, 7, 8, 9, 1, 5, 6, 7, 8, 9, 1, 2, 3, 4, 8, 9, 1, 2, 3, 4, 5, 6, 7, 3, 4, 5, 6,
             7, 8, 9, 1, 2, 6, 7, 8, 9, 1, 2, 3, 4, 5, 9, 1, 2, 3, 4, 5, 6, 7, 8,
-        ]);
+        ])
+    }
+
+    pub fn initialize() -> Self {
+        use rand::Rng;
+        let mut board = Self::initialize_base();
+        let mut rng = rand::thread_rng();
+        for _ in 0..128 {
+            match rng.gen::<u8>() % 8 {
+                0 => board.reverse(),
+                1 => board.rotate(),
+                2 => board.mirror_columns(),
+                3 => board.mirror_rows(),
+                4 => board.swap_columns(rng.gen::<u8>() % 3, rng.gen::<u8>() % 3),
+                5 => board.swap_rows(rng.gen::<u8>() % 3, rng.gen::<u8>() % 3),
+                6 => board.swap_column_cluster(rng.gen::<u8>() % 3),
+                7 => board.swap_row_cluster(rng.gen::<u8>() % 3),
+                _ => unreachable!(),
+            }
+        }
         board
     }
 
@@ -119,14 +138,85 @@ impl Board {
         }
     }
 
-    // fn swap_rows(&mut self,
-    // swapRows(cluster: number, pivot: number) {
-    //   this.swapRowsByIndex(((pivot + 1) % 3) + cluster * 3, ((pivot + 2) % 3) + cluster * 3)
-    // }
+    fn swap_columns(&mut self, cluster_column: u8, pivot: u8) {
+        if cluster_column > 2 {
+            panic!("There are only three cluster columns: {}", cluster_column);
+        }
 
-    // swapColumns(cluster: number, pivot: number) {
-    //   this.swapColumnsByIndex(((pivot + 1) % 3) + cluster * 3, ((pivot + 2) % 3) + cluster * 3)
-    // }
+        if pivot > 2 {
+            panic!("There are only three columns per cluster: {}", pivot);
+        }
+
+        let other = self.0.clone();
+        let col1 = usize::from(((pivot + 1) % 3) + cluster_column * 3);
+        let col2 = usize::from(((pivot + 2) % 3) + cluster_column * 3);
+
+        for row in 0..9 {
+            let row_ref = row * 9;
+            self.0[row_ref + col1] = other[row_ref + col2];
+            self.0[row_ref + col2] = other[row_ref + col1];
+        }
+    }
+
+    fn swap_rows(&mut self, cluster_row: u8, pivot: u8) {
+        if cluster_row > 2 {
+            panic!("There are only three cluster rows: {}", cluster_row);
+        }
+
+        if pivot > 2 {
+            panic!("There are only three rows per cluster: {}", pivot);
+        }
+
+        let other = self.0.clone();
+        let row1 = usize::from(((pivot + 1) % 3) + cluster_row * 3) * 9;
+        let row2 = usize::from(((pivot + 2) % 3) + cluster_row * 3) * 9;
+
+        for col in 0..9 {
+            self.0[row1 + col] = other[row2 + col];
+            self.0[row2 + col] = other[row1 + col];
+        }
+    }
+
+    fn swap_column_cluster(&mut self, pivot: u8) {
+        if pivot > 2 {
+            panic!("There are only three cluster columns: {}", pivot);
+        }
+
+        let other = self.0.clone();
+        let col1 = usize::from(((pivot + 1) % 3) * 3);
+        let col2 = usize::from(((pivot + 1) % 3) * 3);
+
+        for row in 0..9 {
+            let row_ref = row * 9;
+            self.0[row_ref + col1 + 0] = other[row_ref + col2 + 0];
+            self.0[row_ref + col1 + 1] = other[row_ref + col2 + 1];
+            self.0[row_ref + col1 + 2] = other[row_ref + col2 + 2];
+
+            self.0[row_ref + col2 + 0] = other[row_ref + col1 + 0];
+            self.0[row_ref + col2 + 1] = other[row_ref + col1 + 1];
+            self.0[row_ref + col2 + 2] = other[row_ref + col1 + 2];
+        }
+    }
+
+    fn swap_row_cluster(&mut self, pivot: u8) {
+        if pivot > 2 {
+            panic!("There are only three cluster rows: {}", pivot);
+        }
+
+        let other = self.0.clone();
+        let row1 = usize::from(((pivot + 1) % 3) * 3) * 9;
+        let row2 = usize::from(((pivot + 1) % 3) * 3) * 9;
+
+        for col in 0..9 {
+            self.0[row1 + col] = other[row2 + col];
+            self.0[row1 + col] = other[row2 + col];
+            self.0[row1 + col] = other[row2 + col];
+
+            self.0[row2 + col] = other[row1 + col];
+            self.0[row2 + col] = other[row1 + col];
+            self.0[row2 + col] = other[row1 + col];
+        }
+    }
 }
 
 impl std::fmt::Debug for Board {
@@ -368,6 +458,98 @@ mod test {
     }
 
     #[test]
+    fn swap_columns() {
+        let mut board = sequential_board();
+        board.swap_columns(0, 2);
+        let mut expected = sequential_board();
+
+        for row in 0..9 {
+            for col in 0..9 {
+                if col == 0 {
+                    assert_eq!(
+                        board.get(Coordinate { row, col }),
+                        expected.get(Coordinate { row, col: col + 1 })
+                    );
+                } else if col == 1 {
+                    assert_eq!(
+                        board.get(Coordinate { row, col }),
+                        expected.get(Coordinate { row, col: col - 1 })
+                    );
+                } else {
+                    assert_eq!(
+                        board.get(Coordinate { row, col }),
+                        expected.get(Coordinate { row, col })
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn swap_rows() {
+        let mut board = sequential_board();
+        board.swap_rows(0, 2);
+        let mut expected = sequential_board();
+
+        for row in 0..9 {
+            for col in 0..9 {
+                if row == 0 {
+                    assert_eq!(
+                        board.get(Coordinate { row, col }),
+                        expected.get(Coordinate { row: row + 1, col })
+                    );
+                } else if row == 1 {
+                    assert_eq!(
+                        board.get(Coordinate { row, col }),
+                        expected.get(Coordinate { row: row - 1, col })
+                    );
+                } else {
+                    assert_eq!(
+                        board.get(Coordinate { row, col }),
+                        expected.get(Coordinate { row, col })
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn swap_column_cluster() {
+        let mut board = sequential_board();
+        board.swap_column_cluster(2);
+        board.swap_column_cluster(1);
+        let mut expected = sequential_board();
+
+        for row in 0..9 {
+            for col_index in 0..9 {
+                let col = (col_index + 1) % 3;
+                assert_eq!(
+                    board.get(Coordinate { row, col }),
+                    expected.get(Coordinate { row, col })
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn swap_row_cluster() {
+        let mut board = sequential_board();
+        board.swap_row_cluster(2);
+        board.swap_row_cluster(1);
+        let mut expected = sequential_board();
+
+        for row_index in 0..9 {
+            for col in 0..9 {
+                let row = (row_index + 1) % 3;
+                assert_eq!(
+                    board.get(Coordinate { row, col }),
+                    expected.get(Coordinate { row, col })
+                );
+            }
+        }
+    }
+
+    #[test]
     fn row_iterator() {
         let board = sequential_board();
 
@@ -408,7 +590,7 @@ mod test {
 
     #[test]
     fn consistent() {
-        let mut board = Board::initialize(0);
+        let mut board = Board::initialize_base();
         assert_eq!(board.list_inconsistencies().len(), 0);
         board.reverse();
         assert_eq!(board.list_inconsistencies().len(), 0);
@@ -417,6 +599,14 @@ mod test {
         board.mirror_columns();
         assert_eq!(board.list_inconsistencies().len(), 0);
         board.mirror_rows();
+        assert_eq!(board.list_inconsistencies().len(), 0);
+        board.swap_columns(2, 1);
+        assert_eq!(board.list_inconsistencies().len(), 0);
+        board.swap_rows(1, 2);
+        assert_eq!(board.list_inconsistencies().len(), 0);
+        board.swap_column_cluster(1);
+        assert_eq!(board.list_inconsistencies().len(), 0);
+        board.swap_row_cluster(1);
         assert_eq!(board.list_inconsistencies().len(), 0);
     }
 }
