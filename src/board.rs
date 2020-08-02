@@ -30,70 +30,80 @@ impl Board {
         board
     }
 
-    fn get(&self, coordinate: Coordinate) -> u8 {
-        self.0[coordinate.as_linear()]
+    pub fn get(&self, cell: Cell) -> Option<u8> {
+        let value = self.0[cell.as_linear()];
+        if value == 0 {
+            None
+        } else {
+            Some(value)
+        }
     }
 
-    pub fn set(&mut self, coordinate: Coordinate, value: u8) {
+    #[cfg(test)]
+    fn get_raw(&self, cell: Cell) -> u8 {
+        self.0[cell.as_linear()]
+    }
+
+    pub fn set(&mut self, cell: Cell, value: u8) -> bool {
         if value < 1 || value > 9 {
             panic!("Invalid value: {}", value);
         }
-        self.0[coordinate.as_linear()] = value;
+        self.0[cell.as_linear()] = value;
+        self.consistent(cell)
     }
 
-    pub fn clear(&mut self, coordinate: Coordinate) {
-        self.0[coordinate.as_linear()] = 0;
+    pub fn clear(&mut self, cell: Cell) {
+        self.0[cell.as_linear()] = 0;
     }
 
-    pub fn consistent(&self, coordinate: Coordinate) -> bool {
-        let reference = self.get(coordinate);
-        if reference == 0 {
-            return true;
-        }
-
-        let mut found = false;
-        for value in self.0.row(coordinate.row) {
-            if value == reference {
-                if found {
-                    return false;
-                } else {
-                    found = true;
+    pub fn consistent(&self, cell: Cell) -> bool {
+        if let Some(reference) = self.get(cell) {
+            let mut found = false;
+            for value in self.0.row(cell.row) {
+                if value == reference {
+                    if found {
+                        return false;
+                    } else {
+                        found = true;
+                    }
                 }
             }
-        }
 
-        let mut found = false;
-        for value in self.0.column(coordinate.col) {
-            if value == reference {
-                if found {
-                    return false;
-                } else {
-                    found = true;
+            let mut found = false;
+            for value in self.0.column(cell.col) {
+                if value == reference {
+                    if found {
+                        return false;
+                    } else {
+                        found = true;
+                    }
                 }
             }
-        }
 
-        let mut found = false;
-        for value in self.0.cluster(coordinate.row / 3 + coordinate.col / 3) {
-            if value == reference {
-                if found {
-                    return false;
-                } else {
-                    found = true;
+            let mut found = false;
+            for value in self.0.cluster(cell.row / 3 + cell.col / 3) {
+                if value == reference {
+                    if found {
+                        return false;
+                    } else {
+                        found = true;
+                    }
                 }
             }
-        }
 
-        true
+            true
+        } else {
+            true
+        }
     }
 
-    pub fn list_inconsistencies(&self) -> Vec<Coordinate> {
+    pub fn list_inconsistencies(&self) -> Vec<Cell> {
         let mut inconsistencies = Vec::new();
         for row in 0..9 {
             for col in 0..9 {
-                let coordinate = Coordinate { row, col };
-                if !self.consistent(coordinate) {
-                    inconsistencies.push(coordinate);
+                let cell = Cell { row, col };
+                if !self.consistent(cell) {
+                    inconsistencies.push(cell);
                 }
             }
         }
@@ -222,12 +232,30 @@ impl std::fmt::Display for Board {
             write!(fmt, "┃")?;
             for row in 0..8 {
                 if row % 3 == 2 {
-                    write!(fmt, "{}│", self.get(Coordinate { row, col }))?;
+                    write!(
+                        fmt,
+                        "{}│",
+                        self.get(Cell { row, col })
+                            .map(|c| (c + 48) as char)
+                            .unwrap_or(' ')
+                    )?;
                 } else {
-                    write!(fmt, "{} ", self.get(Coordinate { row, col }))?;
+                    write!(
+                        fmt,
+                        "{} ",
+                        self.get(Cell { row, col })
+                            .map(|c| (c + 48) as char)
+                            .unwrap_or(' ')
+                    )?;
                 }
             }
-            writeln!(fmt, "{}┃", self.get(Coordinate { row: 8, col }))?;
+            writeln!(
+                fmt,
+                "{}┃",
+                self.get(Cell { row: 8, col })
+                    .map(|c| (c + 48) as char)
+                    .unwrap_or(' ')
+            )?;
             if col < 8 && col % 3 == 2 {
                 writeln!(fmt, "┠─────┼─────┼─────┨")?;
             }
@@ -242,6 +270,32 @@ impl std::fmt::Debug for Board {
             write!(fmt, "{},", self.0[i])?;
         }
         Ok(())
+    }
+}
+
+#[derive(Copy, Clone, Debug)]
+pub struct Cell {
+    row: u8,
+    col: u8,
+}
+
+impl Cell {
+    pub fn from_index(index: &u8) -> Self {
+        Self::new(index / 9, index % 9)
+    }
+
+    pub fn new(row: u8, col: u8) -> Self {
+        if row > 8 || col > 8 {
+            panic!("Cannot linearize (row: {}, col: {}", row, col);
+        }
+        Self { row, col }
+    }
+
+    fn as_linear(&self) -> usize {
+        if self.row > 8 || self.col > 8 {
+            panic!("Cannot linearize (row: {}, col: {}", self.row, self.col);
+        }
+        usize::from(self.row * 9 + self.col)
     }
 }
 
@@ -358,24 +412,9 @@ impl IntoClusterIterator for [u8; 81] {
     }
 }
 
-#[derive(Copy, Clone, Debug)]
-pub struct Coordinate {
-    row: u8,
-    col: u8,
-}
-
-impl Coordinate {
-    fn as_linear(&self) -> usize {
-        if self.row > 8 || self.col > 8 {
-            panic!("Cannot linearize (row: {}, col: {}", self.row, self.col);
-        }
-        usize::from(self.row * 9 + self.col)
-    }
-}
-
 #[cfg(test)]
 mod test {
-    use super::{Board, Coordinate, IntoClusterIterator, IntoColumnIterator, IntoRowIterator};
+    use super::{Board, Cell, IntoClusterIterator, IntoColumnIterator, IntoRowIterator};
 
     fn sequential_board() -> Board {
         let mut board = [0; 81];
@@ -391,7 +430,7 @@ mod test {
 
         for row in 0..9 {
             for col in 0..9 {
-                assert_eq!(board.get(Coordinate { row, col }), row * 9 + col);
+                assert_eq!(board.get_raw(Cell { row, col }), row * 9 + col);
             }
         }
     }
@@ -399,14 +438,14 @@ mod test {
     #[test]
     fn set() {
         let mut board = sequential_board();
-        board.set(Coordinate { row: 4, col: 5 }, 1);
+        assert!(board.set(Cell { row: 4, col: 5 }, 1));
 
         for row in 0..9 {
             for col in 0..9 {
                 if row == 4 && col == 5 {
-                    assert_eq!(board.get(Coordinate { row, col }), 1);
+                    assert_eq!(board.get_raw(Cell { row, col }), 1);
                 } else {
-                    assert_eq!(board.get(Coordinate { row, col }), row * 9 + col);
+                    assert_eq!(board.get_raw(Cell { row, col }), row * 9 + col);
                 }
             }
         }
@@ -415,14 +454,14 @@ mod test {
     #[test]
     fn clear() {
         let mut board = sequential_board();
-        board.clear(Coordinate { row: 4, col: 5 });
+        board.clear(Cell { row: 4, col: 5 });
 
         for row in 0..9 {
             for col in 0..9 {
                 if row == 4 && col == 5 {
-                    assert_eq!(board.get(Coordinate { row, col }), 0);
+                    assert_eq!(board.get_raw(Cell { row, col }), 0);
                 } else {
-                    assert_eq!(board.get(Coordinate { row, col }), row * 9 + col);
+                    assert_eq!(board.get_raw(Cell { row, col }), row * 9 + col);
                 }
             }
         }
@@ -445,7 +484,7 @@ mod test {
 
         for row in 0..9 {
             for col in 0..9 {
-                assert_eq!(board.get(Coordinate { row, col }), col * 9 + row);
+                assert_eq!(board.get_raw(Cell { row, col }), col * 9 + row);
             }
         }
     }
@@ -457,7 +496,7 @@ mod test {
 
         for row in 0..9 {
             for col in 0..9 {
-                assert_eq!(board.get(Coordinate { row, col }), row * 9 + (8 - col));
+                assert_eq!(board.get_raw(Cell { row, col }), row * 9 + (8 - col));
             }
         }
     }
@@ -469,7 +508,7 @@ mod test {
 
         for row in 0..9 {
             for col in 0..9 {
-                assert_eq!(board.get(Coordinate { row, col }), (8 - row) * 9 + col);
+                assert_eq!(board.get_raw(Cell { row, col }), (8 - row) * 9 + col);
             }
         }
     }
@@ -484,18 +523,18 @@ mod test {
             for col in 0..9 {
                 if col == 0 {
                     assert_eq!(
-                        board.get(Coordinate { row, col }),
-                        expected.get(Coordinate { row, col: col + 1 })
+                        board.get_raw(Cell { row, col }),
+                        expected.get_raw(Cell { row, col: col + 1 })
                     );
                 } else if col == 1 {
                     assert_eq!(
-                        board.get(Coordinate { row, col }),
-                        expected.get(Coordinate { row, col: col - 1 })
+                        board.get_raw(Cell { row, col }),
+                        expected.get_raw(Cell { row, col: col - 1 })
                     );
                 } else {
                     assert_eq!(
-                        board.get(Coordinate { row, col }),
-                        expected.get(Coordinate { row, col })
+                        board.get_raw(Cell { row, col }),
+                        expected.get_raw(Cell { row, col })
                     );
                 }
             }
@@ -512,18 +551,18 @@ mod test {
             for col in 0..9 {
                 if row == 0 {
                     assert_eq!(
-                        board.get(Coordinate { row, col }),
-                        expected.get(Coordinate { row: row + 1, col })
+                        board.get_raw(Cell { row, col }),
+                        expected.get_raw(Cell { row: row + 1, col })
                     );
                 } else if row == 1 {
                     assert_eq!(
-                        board.get(Coordinate { row, col }),
-                        expected.get(Coordinate { row: row - 1, col })
+                        board.get_raw(Cell { row, col }),
+                        expected.get_raw(Cell { row: row - 1, col })
                     );
                 } else {
                     assert_eq!(
-                        board.get(Coordinate { row, col }),
-                        expected.get(Coordinate { row, col })
+                        board.get_raw(Cell { row, col }),
+                        expected.get_raw(Cell { row, col })
                     );
                 }
             }
@@ -541,8 +580,8 @@ mod test {
             for col_index in 0..9 {
                 let col = (col_index + 1) % 3;
                 assert_eq!(
-                    board.get(Coordinate { row, col }),
-                    expected.get(Coordinate { row, col })
+                    board.get_raw(Cell { row, col }),
+                    expected.get_raw(Cell { row, col })
                 );
             }
         }
@@ -559,8 +598,8 @@ mod test {
             for col in 0..9 {
                 let row = (row_index + 1) % 3;
                 assert_eq!(
-                    board.get(Coordinate { row, col }),
-                    expected.get(Coordinate { row, col })
+                    board.get_raw(Cell { row, col }),
+                    expected.get_raw(Cell { row, col })
                 );
             }
         }
