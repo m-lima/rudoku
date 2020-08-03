@@ -32,6 +32,7 @@ impl Board {
         board
     }
 
+    #[inline]
     pub fn get(&self, cell: Cell) -> Token {
         Token::from(self.0[cell.as_linear()])
     }
@@ -265,6 +266,7 @@ pub enum Token {
 }
 
 impl Token {
+    #[inline]
     pub fn iter() -> impl Iterator<Item = Self> {
         TokenIterator(1)
     }
@@ -327,6 +329,7 @@ pub struct Cell {
 }
 
 impl Cell {
+    #[inline]
     pub fn new(row: u8, col: u8) -> Self {
         if row > 8 || col > 8 {
             panic!("Cell aout of bounds (row: {}, col: {})", row, col);
