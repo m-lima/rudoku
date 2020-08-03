@@ -15,7 +15,7 @@ impl Board {
         let mut board = Self::initialize_base();
         let mut rng = rand::thread_rng();
         for _ in 0..128 {
-            match rng.gen::<u8>() % 8 {
+            match rng.gen::<u8>() % 9 {
                 0 => board.reverse(),
                 1 => board.rotate(),
                 2 => board.mirror_columns(),
@@ -24,6 +24,7 @@ impl Board {
                 5 => board.swap_rows(rng.gen::<u8>() % 3, rng.gen::<u8>() % 3),
                 6 => board.swap_column_cluster(rng.gen::<u8>() % 3),
                 7 => board.swap_row_cluster(rng.gen::<u8>() % 3),
+                8 => board.shift(rng.gen::<u8>() % 7),
                 _ => unreachable!(),
             }
         }
@@ -218,6 +219,16 @@ impl Board {
         self.0[row2..(9 + row2)].clone_from_slice(&other[row1..(9 + row1)]);
         self.0[row2..(9 + row2)].clone_from_slice(&other[row1..(9 + row1)]);
         self.0[row2..(9 + row2)].clone_from_slice(&other[row1..(9 + row1)]);
+    }
+
+    fn shift(&mut self, amount: u8) {
+        if amount > 7 {
+            panic!("A cell can only be shifted up to seven places: {}", amount);
+        }
+
+        for value in self.0.iter_mut() {
+            *value = ((*value + amount) % 9) + 1;
+        }
     }
 }
 
@@ -615,6 +626,16 @@ mod test {
     }
 
     #[test]
+    fn shift() {
+        let mut board = sequential_board();
+        board.shift(1);
+
+        for i in 0..81 {
+            assert_eq!(board.0[usize::from(i)], (i + 1) % 9 + 1);
+        }
+    }
+
+    #[test]
     fn row_iterator() {
         let board = sequential_board();
 
@@ -674,6 +695,8 @@ mod test {
         board.swap_column_cluster(1);
         assert_eq!(board.list_inconsistencies().len(), 0);
         board.swap_row_cluster(1);
+        assert_eq!(board.list_inconsistencies().len(), 0);
+        board.shift(1);
         assert_eq!(board.list_inconsistencies().len(), 0);
 
         let lucky_index = rand::thread_rng().gen::<u8>() % 81;
