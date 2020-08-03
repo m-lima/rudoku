@@ -39,7 +39,6 @@ impl Board {
         }
     }
 
-    #[cfg(test)]
     fn get_raw(&self, cell: Cell) -> u8 {
         self.0[cell.as_linear()]
     }
@@ -57,7 +56,8 @@ impl Board {
     }
 
     pub fn consistent(&self, cell: Cell) -> bool {
-        if let Some(reference) = self.get(cell) {
+        let reference = self.get_raw(cell);
+        if reference > 0 {
             let mut found = false;
             for value in self.0.row(cell.row) {
                 if value == reference {
@@ -111,14 +111,14 @@ impl Board {
     }
 
     fn reverse(&mut self) {
-        let temp = self.0.clone();
+        let temp = self.0;
         for i in 0..self.0.len() {
             self.0[i] = temp[temp.len() - i - 1];
         }
     }
 
     fn rotate(&mut self) {
-        let other = self.0.clone();
+        let other = self.0;
         for i in 0..9 {
             for (index, value) in other.column(i).enumerate() {
                 self.0[usize::from(i) * 9 + index] = value;
@@ -127,7 +127,7 @@ impl Board {
     }
 
     fn mirror_columns(&mut self) {
-        let other = self.0.clone();
+        let other = self.0;
         for i in 0..9 {
             for (index, value) in other.column(i).enumerate() {
                 self.0[index * 9 + (8 - usize::from(i))] = value;
@@ -136,7 +136,7 @@ impl Board {
     }
 
     fn mirror_rows(&mut self) {
-        let other = self.0.clone();
+        let other = self.0;
         for i in 0..9 {
             for (index, value) in other.row(i).enumerate() {
                 self.0[(8 - usize::from(i)) * 9 + index] = value;
@@ -153,7 +153,7 @@ impl Board {
             panic!("There are only three columns per cluster: {}", pivot);
         }
 
-        let other = self.0.clone();
+        let other = self.0;
         let col1 = usize::from(((pivot + 1) % 3) + cluster_column * 3);
         let col2 = usize::from(((pivot + 2) % 3) + cluster_column * 3);
 
@@ -173,14 +173,12 @@ impl Board {
             panic!("There are only three rows per cluster: {}", pivot);
         }
 
-        let other = self.0.clone();
+        let other = self.0;
         let row1 = usize::from(((pivot + 1) % 3) + cluster_row * 3) * 9;
         let row2 = usize::from(((pivot + 2) % 3) + cluster_row * 3) * 9;
 
-        for col in 0..9 {
-            self.0[row1 + col] = other[row2 + col];
-            self.0[row2 + col] = other[row1 + col];
-        }
+        self.0[row1..(9 + row1)].clone_from_slice(&other[row2..(9 + row2)]);
+        self.0[row2..(9 + row2)].clone_from_slice(&other[row1..(9 + row1)]);
     }
 
     fn swap_column_cluster(&mut self, pivot: u8) {
@@ -188,17 +186,17 @@ impl Board {
             panic!("There are only three cluster columns: {}", pivot);
         }
 
-        let other = self.0.clone();
+        let other = self.0;
         let col1 = usize::from(((pivot + 1) % 3) * 3);
         let col2 = usize::from(((pivot + 1) % 3) * 3);
 
         for row in 0..9 {
             let row_ref = row * 9;
-            self.0[row_ref + col1 + 0] = other[row_ref + col2 + 0];
+            self.0[row_ref + col1] = other[row_ref + col2];
             self.0[row_ref + col1 + 1] = other[row_ref + col2 + 1];
             self.0[row_ref + col1 + 2] = other[row_ref + col2 + 2];
 
-            self.0[row_ref + col2 + 0] = other[row_ref + col1 + 0];
+            self.0[row_ref + col2] = other[row_ref + col1];
             self.0[row_ref + col2 + 1] = other[row_ref + col1 + 1];
             self.0[row_ref + col2 + 2] = other[row_ref + col1 + 2];
         }
@@ -209,19 +207,16 @@ impl Board {
             panic!("There are only three cluster rows: {}", pivot);
         }
 
-        let other = self.0.clone();
+        let other = self.0;
         let row1 = usize::from(((pivot + 1) % 3) * 3) * 9;
         let row2 = usize::from(((pivot + 1) % 3) * 3) * 9;
 
-        for col in 0..9 {
-            self.0[row1 + col] = other[row2 + col];
-            self.0[row1 + col] = other[row2 + col];
-            self.0[row1 + col] = other[row2 + col];
-
-            self.0[row2 + col] = other[row1 + col];
-            self.0[row2 + col] = other[row1 + col];
-            self.0[row2 + col] = other[row1 + col];
-        }
+        self.0[row1..(9 + row1)].clone_from_slice(&other[row2..(9 + row2)]);
+        self.0[row1..(9 + row1)].clone_from_slice(&other[row2..(9 + row2)]);
+        self.0[row1..(9 + row1)].clone_from_slice(&other[row2..(9 + row2)]);
+        self.0[row2..(9 + row2)].clone_from_slice(&other[row1..(9 + row1)]);
+        self.0[row2..(9 + row2)].clone_from_slice(&other[row1..(9 + row1)]);
+        self.0[row2..(9 + row2)].clone_from_slice(&other[row1..(9 + row1)]);
     }
 }
 
@@ -280,7 +275,7 @@ pub struct Cell {
 }
 
 impl Cell {
-    pub fn from_index(index: &u8) -> Self {
+    pub fn from_index(index: u8) -> Self {
         Self::new(index / 9, index % 9)
     }
 
@@ -320,11 +315,11 @@ impl std::iter::Iterator for RowIterator<'_> {
 }
 
 trait IntoRowIterator {
-    fn row<'a>(&'a self, index: u8) -> RowIterator<'a>;
+    fn row(&self, index: u8) -> RowIterator<'_>;
 }
 
 impl IntoRowIterator for [u8; 81] {
-    fn row<'a>(&'a self, index: u8) -> RowIterator<'a> {
+    fn row(&self, index: u8) -> RowIterator<'_> {
         if index > 8 {
             panic!("Invalid row: {}", index);
         }
@@ -357,11 +352,11 @@ impl std::iter::Iterator for ColumnIterator<'_> {
 }
 
 trait IntoColumnIterator {
-    fn column<'a>(&'a self, index: u8) -> ColumnIterator<'a>;
+    fn column(&self, index: u8) -> ColumnIterator<'_>;
 }
 
 impl IntoColumnIterator for [u8; 81] {
-    fn column<'a>(&'a self, index: u8) -> ColumnIterator<'a> {
+    fn column(&self, index: u8) -> ColumnIterator<'_> {
         if index > 8 {
             panic!("Invalid column: {}", index);
         }
@@ -394,11 +389,11 @@ impl std::iter::Iterator for ClusterIterator<'_> {
 }
 
 trait IntoClusterIterator {
-    fn cluster<'a>(&'a self, index: u8) -> ClusterIterator<'a>;
+    fn cluster(&self, index: u8) -> ClusterIterator<'_>;
 }
 
 impl IntoClusterIterator for [u8; 81] {
-    fn cluster<'a>(&'a self, index: u8) -> ClusterIterator<'a> {
+    fn cluster(&self, index: u8) -> ClusterIterator<'_> {
         if index > 8 {
             panic!("Invalid cluster: {}", index);
         }
@@ -646,6 +641,8 @@ mod test {
 
     #[test]
     fn consistent() {
+        use rand::Rng;
+
         let mut board = Board::initialize_base();
         assert_eq!(board.list_inconsistencies().len(), 0);
         board.reverse();
@@ -664,5 +661,12 @@ mod test {
         assert_eq!(board.list_inconsistencies().len(), 0);
         board.swap_row_cluster(1);
         assert_eq!(board.list_inconsistencies().len(), 0);
+
+        let lucky_index = rand::thread_rng().gen::<u8>() % 81;
+        let lucky_cell = Cell::from_index(lucky_index);
+        let cell = board.get_raw(lucky_cell);
+        board.0[usize::from(lucky_index)] = ((cell + 1) % 9) + 1;
+        assert!(!board.consistent(lucky_cell));
+        assert!(!board.list_inconsistencies().is_empty());
     }
 }

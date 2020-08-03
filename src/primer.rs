@@ -19,7 +19,7 @@ pub fn prune(board: &mut Board, difficulty: Difficulty) -> u8 {
     let mut removed = 0;
     let mut empty_cells = Vec::<Cell>::new();
 
-    for cell in sequence.iter().map(Cell::from_index) {
+    for cell in sequence.iter().map(Clone::clone).map(Cell::from_index) {
         if let Some(value) = board.get(cell) {
             if multiple_solutions(board, value, cell, &empty_cells) {
                 board.set(cell, value);
@@ -52,34 +52,51 @@ fn random_sequence() -> [u8; 81] {
     indices
 }
 
-fn multiple_solutions(board: &mut Board, value: u8, cell: Cell, empty_cells: &[Cell]) -> bool {
-    if !empty_cells.is_empty() {
-        for i in 1..=9 {
-            if i == value {
-                continue;
-            }
+fn multiple_solutions(board: &Board, value: u8, cell: Cell, empty_cells: &[Cell]) -> bool {
+    if empty_cells.is_empty() {
+        return false;
+    }
+    crossbeam_utils::thread::scope(|s| {
+        let results = (1..=2)
+            .map(|i| {
+                if i == value {
+                    return None;
+                }
 
-            if board.set(cell, i) {
-                if solvable(board, empty_cells, 0) {
+                let mut cloned_board = *board;
+                if cloned_board.set(cell, i) {
+                    None
+                } else {
+                    Some(s.spawn(move |_| solvable(cloned_board, empty_cells, 0)))
+                }
+            })
+            .collect::<Vec<_>>();
+
+        for optional_result in results {
+            if let Some(result) = optional_result {
+                if result.join().expect("Failed to join threads") {
                     return true;
                 }
             }
         }
-    }
-
-    false
+        false
+    })
+    .expect("Failed to start scope")
 }
 
-fn solvable(board: &mut Board, empty_cells: &[Cell], index: usize) -> bool {
+fn solvable(mut board: Board, empty_cells: &[Cell], index: usize) -> bool {
     if index == empty_cells.len() {
         return true;
+        // return board.list_inconsistencies().is_empty();
     }
 
     let cell = empty_cells[index];
     for value in 1..=9 {
-        if board.set(cell, value) && solvable(board, empty_cells, index + 1) {
-            board.clear(cell);
-            return true;
+        if board.set(cell, value) && board.list_inconsistencies().is_empty() {
+            if solvable(board, empty_cells, index + 1) {
+                board.clear(cell);
+                return true;
+            }
         }
     }
 
