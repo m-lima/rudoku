@@ -1,4 +1,4 @@
-use crate::board::{Board, Cell};
+use crate::board::{Board, Cell, Token};
 
 #[derive(Copy, Clone, Debug)]
 pub enum Difficulty {
@@ -19,19 +19,22 @@ pub fn prune(board: &mut Board, difficulty: Difficulty) -> u8 {
     let mut removed = 0;
     let mut empty_cells = Vec::<Cell>::new();
 
-    for cell in sequence.iter().map(Clone::clone).map(Cell::from_index) {
-        println!("{} / {}", removed, holes);
-        if let Some(value) = board.get(cell) {
-            if multiple_solutions(board, value, cell, &empty_cells) {
-                board.set(cell, value);
-            } else {
-                board.clear(cell);
-                empty_cells.push(cell);
-                removed += 1;
+    for cell in sequence.iter().map(Cell::from) {
+        let token = board.get(cell);
 
-                if removed >= holes {
-                    break;
-                }
+        if token == Token::None {
+            continue;
+        }
+
+        if multiple_solutions(board, token, cell, &empty_cells) {
+            board.set(cell, token);
+        } else {
+            board.set(cell, Token::None);
+            empty_cells.push(cell);
+            removed += 1;
+
+            if removed >= holes {
+                break;
             }
         }
     }
@@ -53,14 +56,14 @@ fn random_sequence() -> [u8; 81] {
     indices
 }
 
-fn multiple_solutions(board: &Board, value: u8, cell: Cell, empty_cells: &[Cell]) -> bool {
+fn multiple_solutions(board: &Board, token: Token, cell: Cell, empty_cells: &[Cell]) -> bool {
     if empty_cells.is_empty() {
         return false;
     }
     crossbeam_utils::thread::scope(|s| {
-        let results = (1..=9)
+        let results = Token::iter()
             .map(|i| {
-                if i == value {
+                if i == token {
                     return None;
                 }
 
@@ -91,13 +94,13 @@ fn solvable(mut board: Board, empty_cells: &[Cell], index: usize) -> bool {
     }
 
     let cell = empty_cells[index];
-    for value in 1..=9 {
-        if board.set(cell, value) && solvable(board, empty_cells, index + 1) {
-            board.clear(cell);
+    for token in Token::iter() {
+        if board.set(cell, token) && solvable(board, empty_cells, index + 1) {
+            board.set(cell, Token::None);
             return true;
         }
     }
 
-    board.clear(cell);
+    board.set(cell, Token::None);
     false
 }
