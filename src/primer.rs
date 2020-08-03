@@ -92,11 +92,9 @@ fn solvable(mut board: Board, empty_cells: &[Cell], index: usize) -> bool {
 
     let cell = empty_cells[index];
     for value in 1..=9 {
-        if board.set(cell, value) && board.list_inconsistencies().is_empty() {
-            if solvable(board, empty_cells, index + 1) {
-                board.clear(cell);
-                return true;
-            }
+        if board.set(cell, value) && solvable(board, empty_cells, index + 1) {
+            board.clear(cell);
+            return true;
         }
     }
 

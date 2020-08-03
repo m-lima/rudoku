@@ -1,3 +1,6 @@
+#![deny(warnings, clippy::pedantic)]
+#![warn(rust_2018_idioms)]
+
 mod board;
 mod primer;
 
@@ -6,12 +9,11 @@ fn main() {
     let level = std::env::args()
         .nth(1)
         .map(|level| level.chars().filter(|c| c == &'+').count())
-        .map(|level| match level {
+        .map_or(primer::Difficulty::Medium, |level| match level {
             0 | 2 => primer::Difficulty::Medium,
             1 => primer::Difficulty::Easy,
             _ => primer::Difficulty::Hard,
-        })
-        .unwrap_or(primer::Difficulty::Medium);
+        });
     println!("{}", board);
     let removed = primer::prune(&mut board, level);
     println!("{}", board);

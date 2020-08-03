@@ -69,7 +69,7 @@ impl Board {
                 }
             }
 
-            let mut found = false;
+            found = false;
             for value in self.0.column(cell.col) {
                 if value == reference {
                     if found {
@@ -80,7 +80,7 @@ impl Board {
                 }
             }
 
-            let mut found = false;
+            found = false;
             for value in self.0.cluster(cell.row / 3 + cell.col / 3) {
                 if value == reference {
                     if found {
@@ -97,6 +97,8 @@ impl Board {
         }
     }
 
+    // TODO remove
+    #[allow(dead_code)]
     pub fn list_inconsistencies(&self) -> Vec<Cell> {
         let mut inconsistencies = Vec::new();
         for row in 0..9 {
@@ -221,6 +223,8 @@ impl Board {
 }
 
 impl std::fmt::Display for Board {
+    // Allowed because it is more readable
+    #[allow(clippy::non_ascii_literal)]
     fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         writeln!(fmt, "┏━━━━━┯━━━━━┯━━━━━┓")?;
         for col in 0..9 {
@@ -231,16 +235,14 @@ impl std::fmt::Display for Board {
                         fmt,
                         "{}│",
                         self.get(Cell { row, col })
-                            .map(|c| (c + 48) as char)
-                            .unwrap_or(' ')
+                            .map_or(' ', |c| (c + 48) as char)
                     )?;
                 } else {
                     write!(
                         fmt,
                         "{} ",
                         self.get(Cell { row, col })
-                            .map(|c| (c + 48) as char)
-                            .unwrap_or(' ')
+                            .map_or(' ', |c| (c + 48) as char)
                     )?;
                 }
             }
@@ -248,8 +250,7 @@ impl std::fmt::Display for Board {
                 fmt,
                 "{}┃",
                 self.get(Cell { row: 8, col })
-                    .map(|c| (c + 48) as char)
-                    .unwrap_or(' ')
+                    .map_or(' ', |c| (c + 48) as char)
             )?;
             if col < 8 && col % 3 == 2 {
                 writeln!(fmt, "┠─────┼─────┼─────┨")?;
@@ -286,7 +287,7 @@ impl Cell {
         Self { row, col }
     }
 
-    fn as_linear(&self) -> usize {
+    fn as_linear(self) -> usize {
         if self.row > 8 || self.col > 8 {
             panic!("Cannot linearize (row: {}, col: {}", self.row, self.col);
         }
@@ -407,6 +408,8 @@ impl IntoClusterIterator for [u8; 81] {
     }
 }
 
+// Allowed because this is a test
+#[allow(clippy::cast_possible_truncation)]
 #[cfg(test)]
 mod test {
     use super::{Board, Cell, IntoClusterIterator, IntoColumnIterator, IntoRowIterator};
@@ -444,6 +447,8 @@ mod test {
                 }
             }
         }
+
+        assert!(!board.set(Cell::new(2, 0), 1));
     }
 
     #[test]
