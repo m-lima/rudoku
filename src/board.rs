@@ -27,6 +27,7 @@ impl Board {
                 _ => unreachable!(),
             }
         }
+        assert!(board.list_inconsistencies().is_empty());
         board
     }
 
@@ -97,8 +98,6 @@ impl Board {
         }
     }
 
-    // TODO remove
-    #[allow(dead_code)]
     pub fn list_inconsistencies(&self) -> Vec<Cell> {
         let mut inconsistencies = Vec::new();
         for row in 0..9 {
@@ -293,6 +292,16 @@ impl Cell {
         }
         usize::from(self.row * 9 + self.col)
     }
+
+    // #[inline]
+    // pub const fn row(self) -> u8 {
+    //     self.row
+    // }
+
+    // #[inline]
+    // pub const fn col(self) -> u8 {
+    //     self.col
+    // }
 }
 
 struct RowIterator<'a> {

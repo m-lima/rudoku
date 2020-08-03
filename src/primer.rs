@@ -20,6 +20,7 @@ pub fn prune(board: &mut Board, difficulty: Difficulty) -> u8 {
     let mut empty_cells = Vec::<Cell>::new();
 
     for cell in sequence.iter().map(Clone::clone).map(Cell::from_index) {
+        println!("{} / {}", removed, holes);
         if let Some(value) = board.get(cell) {
             if multiple_solutions(board, value, cell, &empty_cells) {
                 board.set(cell, value);
@@ -57,7 +58,7 @@ fn multiple_solutions(board: &Board, value: u8, cell: Cell, empty_cells: &[Cell]
         return false;
     }
     crossbeam_utils::thread::scope(|s| {
-        let results = (1..=2)
+        let results = (1..=9)
             .map(|i| {
                 if i == value {
                     return None;
@@ -65,9 +66,9 @@ fn multiple_solutions(board: &Board, value: u8, cell: Cell, empty_cells: &[Cell]
 
                 let mut cloned_board = *board;
                 if cloned_board.set(cell, i) {
-                    None
-                } else {
                     Some(s.spawn(move |_| solvable(cloned_board, empty_cells, 0)))
+                } else {
+                    None
                 }
             })
             .collect::<Vec<_>>();
@@ -87,7 +88,6 @@ fn multiple_solutions(board: &Board, value: u8, cell: Cell, empty_cells: &[Cell]
 fn solvable(mut board: Board, empty_cells: &[Cell], index: usize) -> bool {
     if index == empty_cells.len() {
         return true;
-        // return board.list_inconsistencies().is_empty();
     }
 
     let cell = empty_cells[index];
