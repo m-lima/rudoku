@@ -1,6 +1,6 @@
 use crate::board::{Board, Cell, Token};
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
 pub enum Difficulty {
     Easy,
     Medium,

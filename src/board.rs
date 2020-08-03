@@ -322,7 +322,7 @@ impl std::iter::Iterator for TokenIterator {
     }
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
 pub struct Cell {
     row: u8,
     col: u8,
@@ -356,6 +356,12 @@ impl std::convert::From<&u8> for Cell {
         Self::from(*index)
     }
 }
+
+// impl std::cmp::Ord for Cell {
+//     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+//         self.as_linear().cmp(&other.as_linear())
+//     }
+// }
 
 struct RowIterator<'a> {
     board: &'a [u8; 81],
@@ -720,6 +726,33 @@ mod test {
             for col in 0..9 {
                 assert_eq!(Cell::new(row, col).as_linear(), usize::from(row * 9 + col));
             }
+        }
+    }
+
+    #[test]
+    fn cell_ordering() {
+        use rand::seq::SliceRandom;
+
+        let mut rng = rand::thread_rng();
+        let mut cells = [Cell::from(0); 81];
+        for i in 0..81 {
+            cells[usize::from(i)] = Cell::from(i);
+        }
+
+        cells.shuffle(&mut rng);
+
+        let mut shuffled = false;
+        for (index, cell) in cells.iter().enumerate() {
+            if cell.as_linear() != index {
+                shuffled = true;
+                break;
+            }
+        }
+        assert!(shuffled);
+        cells.sort();
+
+        for (index, cell) in cells.iter().enumerate() {
+            assert_eq!(cell.as_linear(), index);
         }
     }
 
