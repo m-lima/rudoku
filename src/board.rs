@@ -243,10 +243,10 @@ impl std::fmt::Display for Board {
 
 impl std::fmt::Debug for Board {
     fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        for i in 0..81 {
+        for i in 0..80 {
             write!(fmt, "{},", self.0[i])?;
         }
-        Ok(())
+        write!(fmt, "{}", self.0[80])
     }
 }
 

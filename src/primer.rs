@@ -8,6 +8,7 @@ pub enum Difficulty {
 }
 
 pub fn prune(board: &mut Board, difficulty: Difficulty) -> u8 {
+    use std::io::Write;
     let sequence = random_sequence();
 
     let holes = match difficulty {
@@ -19,7 +20,11 @@ pub fn prune(board: &mut Board, difficulty: Difficulty) -> u8 {
     let mut removed = 0;
     let mut empty_cells = Vec::<Cell>::new();
 
-    for cell in sequence.iter().map(Cell::from) {
+    let _ = std::io::stderr().flush();
+    for (i, cell) in sequence.iter().map(Cell::from).enumerate() {
+        eprint!("\rRemoved: {}/{} ({}%)", removed, holes, (i * 100) / 81);
+        let _ = std::io::stderr().flush();
+
         let token = board.get(cell);
 
         if token == Token::None {
@@ -38,6 +43,8 @@ pub fn prune(board: &mut Board, difficulty: Difficulty) -> u8 {
             }
         }
     }
+    eprint!("\r");
+    let _ = std::io::stderr().flush();
 
     removed
 }
