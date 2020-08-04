@@ -1,6 +1,5 @@
 #![deny(warnings, clippy::pedantic)]
 #![warn(rust_2018_idioms)]
-// TODO remove
 #![allow(dead_code)]
 #![cfg_attr(all(test, nightly), feature(test))]
 

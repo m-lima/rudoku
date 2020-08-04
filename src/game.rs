@@ -1,8 +1,8 @@
-// mod ops;
+type Board = [Token; 81];
 
 #[derive(Copy, Clone)]
 pub struct Game {
-    board: [Token; 81],
+    board: Board,
 }
 
 impl Game {
@@ -199,7 +199,7 @@ mod test {
 mod iter {
     use super::Cell;
 
-    struct RowIndexer {
+    pub struct RowIndexer {
         index: usize,
         end: usize,
     }
@@ -228,7 +228,7 @@ mod iter {
         }
     }
 
-    struct ColumnIndexer {
+    pub struct ColumnIndexer {
         index: usize,
     }
 
@@ -252,7 +252,7 @@ mod iter {
         }
     }
 
-    struct SectorIndexer {
+    pub struct SectorIndexer {
         index: usize,
         wall: usize,
         end: usize,
@@ -417,4 +417,95 @@ mod iter {
             }
         }
     }
+}
+
+mod transform {
+    use super::iter::{ColumnIndexer, RowIndexer};
+    use super::Board;
+
+    fn rotate(board: &mut Board) {
+        let other = *board;
+        for i in 0..9 {
+            let col = ColumnIndexer::new(i);
+            let row = RowIndexer::new(i);
+            for (col, row) in col.zip(row) {
+                board[col.index()] = other[row.index()];
+            }
+        }
+    }
+
+    // fn mirror_columns(&mut self) {
+    //     let other = self.0;
+    //     for i in 0..9 {
+    //         for (index, token) in other.column(i).enumerate() {
+    //             self.0[index * 9 + (8 - usize::from(i))] = token;
+    //         }
+    //     }
+    // }
+
+    // fn mirror_rows(&mut self) {
+    //     let other = self.0;
+    //     for i in 0..9 {
+    //         for (index, token) in other.row(i).enumerate() {
+    //             self.0[(8 - usize::from(i)) * 9 + index] = token;
+    //         }
+    //     }
+    // }
+
+    // fn swap_columns(&mut self, cluster_column: u8, pivot: u8) {
+    //     let other = self.0;
+    //     let col1 = usize::from(((pivot + 1) % 3) + cluster_column * 3);
+    //     let col2 = usize::from(((pivot + 2) % 3) + cluster_column * 3);
+
+    //     for row in 0..9 {
+    //         let row_ref = row * 9;
+    //         self.0[row_ref + col1] = other[row_ref + col2];
+    //         self.0[row_ref + col2] = other[row_ref + col1];
+    //     }
+    // }
+
+    // fn swap_rows(&mut self, cluster_row: u8, pivot: u8) {
+    //     let other = self.0;
+    //     let row1 = usize::from(((pivot + 1) % 3) + cluster_row * 3) * 9;
+    //     let row2 = usize::from(((pivot + 2) % 3) + cluster_row * 3) * 9;
+
+    //     self.0[row1..(9 + row1)].clone_from_slice(&other[row2..(9 + row2)]);
+    //     self.0[row2..(9 + row2)].clone_from_slice(&other[row1..(9 + row1)]);
+    // }
+
+    // fn swap_column_cluster(&mut self, pivot: u8) {
+    //     let other = self.0;
+    //     let col1 = usize::from(((pivot + 1) % 3) * 3);
+    //     let col2 = usize::from(((pivot + 1) % 3) * 3);
+
+    //     for row in 0..9 {
+    //         let row_ref = row * 9;
+    //         self.0[row_ref + col1] = other[row_ref + col2];
+    //         self.0[row_ref + col1 + 1] = other[row_ref + col2 + 1];
+    //         self.0[row_ref + col1 + 2] = other[row_ref + col2 + 2];
+
+    //         self.0[row_ref + col2] = other[row_ref + col1];
+    //         self.0[row_ref + col2 + 1] = other[row_ref + col1 + 1];
+    //         self.0[row_ref + col2 + 2] = other[row_ref + col1 + 2];
+    //     }
+    // }
+
+    // fn swap_row_cluster(&mut self, pivot: u8) {
+    //     let other = self.0;
+    //     let row1 = usize::from(((pivot + 1) % 3) * 3) * 9;
+    //     let row2 = usize::from(((pivot + 1) % 3) * 3) * 9;
+
+    //     self.0[row1..(9 + row1)].clone_from_slice(&other[row2..(9 + row2)]);
+    //     self.0[row1..(9 + row1)].clone_from_slice(&other[row2..(9 + row2)]);
+    //     self.0[row1..(9 + row1)].clone_from_slice(&other[row2..(9 + row2)]);
+    //     self.0[row2..(9 + row2)].clone_from_slice(&other[row1..(9 + row1)]);
+    //     self.0[row2..(9 + row2)].clone_from_slice(&other[row1..(9 + row1)]);
+    //     self.0[row2..(9 + row2)].clone_from_slice(&other[row1..(9 + row1)]);
+    // }
+
+    // fn shift(&mut self, amount: u8) {
+    //     for token in self.0.iter_mut() {
+    //         *token = ((*token + amount) % 9) + 1;
+    //     }
+    // }
 }
