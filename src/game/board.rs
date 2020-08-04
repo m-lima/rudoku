@@ -1,8 +1,24 @@
+use super::{Cell, Token};
+
 #[derive(Copy, Clone)]
 pub struct Board([u8; 81]);
 
 impl Board {
-    fn initialize_base() -> Self {
+    pub fn new() -> Self {
+        Self([0; 81])
+    }
+
+    #[cfg(test)]
+    pub fn sequential() -> Self {
+        let mut board = [0; 81];
+        for i in 0..81 {
+            board[usize::from(i)] = i;
+        }
+        Self(board)
+    }
+
+    #[cfg(test)]
+    pub fn consistent() -> Self {
         Self([
             1, 2, 3, 4, 5, 6, 7, 8, 9, 4, 5, 6, 7, 8, 9, 1, 2, 3, 7, 8, 9, 1, 2, 3, 4, 5, 6, 2, 3,
             4, 5, 6, 7, 8, 9, 1, 5, 6, 7, 8, 9, 1, 2, 3, 4, 8, 9, 1, 2, 3, 4, 5, 6, 7, 3, 4, 5, 6,
@@ -10,26 +26,23 @@ impl Board {
         ])
     }
 
-    pub fn new() -> Self {
+    pub fn shuffle(&mut self) {
         use rand::Rng;
-        let mut board = Self::initialize_base();
         let mut rng = rand::thread_rng();
         for _ in 0..128 {
             match rng.gen::<u8>() % 9 {
-                0 => board.reverse(),
-                1 => board.rotate(),
-                2 => board.mirror_columns(),
-                3 => board.mirror_rows(),
-                4 => board.swap_columns(rng.gen::<u8>() % 3, rng.gen::<u8>() % 3),
-                5 => board.swap_rows(rng.gen::<u8>() % 3, rng.gen::<u8>() % 3),
-                6 => board.swap_column_cluster(rng.gen::<u8>() % 3),
-                7 => board.swap_row_cluster(rng.gen::<u8>() % 3),
-                8 => board.shift(rng.gen::<u8>() % 7),
+                0 => self.reverse(),
+                1 => self.rotate(),
+                2 => self.mirror_columns(),
+                3 => self.mirror_rows(),
+                4 => self.swap_columns(rng.gen::<u8>() % 3, rng.gen::<u8>() % 3),
+                5 => self.swap_rows(rng.gen::<u8>() % 3, rng.gen::<u8>() % 3),
+                6 => self.swap_column_cluster(rng.gen::<u8>() % 3),
+                7 => self.swap_row_cluster(rng.gen::<u8>() % 3),
+                8 => self.shift(rng.gen::<u8>() % 7),
                 _ => unreachable!(),
             }
         }
-        assert!(board.list_inconsistencies().is_empty());
-        board
     }
 
     #[inline]
@@ -37,65 +50,20 @@ impl Board {
         Token::from(self.0[cell.as_linear()])
     }
 
-    pub fn set(&mut self, cell: Cell, token: Token) -> bool {
+    pub fn set(&mut self, cell: Cell, token: Token) {
         self.0[cell.as_linear()] = token as u8;
-        self.consistent(cell)
     }
 
-    pub fn consistent(&self, cell: Cell) -> bool {
-        let reference = self.get(cell);
-
-        if Token::None == reference {
-            return true;
-        }
-
-        let mut found = false;
-        for token in self.0.row(cell.row) {
-            if token == reference as u8 {
-                if found {
-                    return false;
-                } else {
-                    found = true;
-                }
-            }
-        }
-
-        found = false;
-        for token in self.0.column(cell.col) {
-            if token == reference as u8 {
-                if found {
-                    return false;
-                } else {
-                    found = true;
-                }
-            }
-        }
-
-        found = false;
-        for token in self.0.cluster(cell.row / 3 + cell.col / 3) {
-            if token == reference as u8 {
-                if found {
-                    return false;
-                } else {
-                    found = true;
-                }
-            }
-        }
-
-        true
+    pub fn row<'a>(&'a self, row: u8) -> impl 'a + Iterator<Item = u8> {
+        self.0.row(row)
     }
 
-    pub fn list_inconsistencies(&self) -> Vec<Cell> {
-        let mut inconsistencies = Vec::new();
-        for row in 0..9 {
-            for col in 0..9 {
-                let cell = Cell { row, col };
-                if !self.consistent(cell) {
-                    inconsistencies.push(cell);
-                }
-            }
-        }
-        inconsistencies
+    pub fn column<'a>(&'a self, row: u8) -> impl 'a + Iterator<Item = u8> {
+        self.0.column(row)
+    }
+
+    pub fn cluster<'a>(&'a self, row: u8) -> impl 'a + Iterator<Item = u8> {
+        self.0.cluster(row)
     }
 
     fn reverse(&mut self) {
@@ -218,6 +186,14 @@ impl Board {
     }
 }
 
+impl std::ops::Deref for Board {
+    type Target = [u8; 81];
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
 impl std::fmt::Display for Board {
     // Allowed because it is more readable
     #[allow(clippy::non_ascii_literal)]
@@ -249,119 +225,6 @@ impl std::fmt::Debug for Board {
         write!(fmt, "{}", self.0[80])
     }
 }
-
-#[repr(u8)]
-#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
-pub enum Token {
-    None = 0,
-    One = 1,
-    Two = 2,
-    Three = 3,
-    Four = 4,
-    Five = 5,
-    Six = 6,
-    Seven = 7,
-    Eight = 8,
-    Nine = 9,
-}
-
-impl Token {
-    #[inline]
-    pub fn iter() -> impl Iterator<Item = Self> {
-        TokenIterator(1)
-    }
-}
-
-impl std::convert::From<u8> for Token {
-    fn from(token: u8) -> Self {
-        match token {
-            0 => Token::None,
-            1 => Token::One,
-            2 => Token::Two,
-            3 => Token::Three,
-            4 => Token::Four,
-            5 => Token::Five,
-            6 => Token::Six,
-            7 => Token::Seven,
-            8 => Token::Eight,
-            9 => Token::Nine,
-            _ => panic!("Token out of bounds: {}", token),
-        }
-    }
-}
-
-impl std::convert::From<&u8> for Token {
-    fn from(token: &u8) -> Self {
-        Self::from(*token)
-    }
-}
-
-impl std::fmt::Display for Token {
-    fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        if self == &Token::None {
-            write!(fmt, " ")
-        } else {
-            write!(fmt, "{}", *self as u8)
-        }
-    }
-}
-
-struct TokenIterator(u8);
-
-impl std::iter::Iterator for TokenIterator {
-    type Item = Token;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.0 > 9 {
-            None
-        } else {
-            let token = Some(Token::from(self.0));
-            self.0 += 1;
-            token
-        }
-    }
-}
-
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
-pub struct Cell {
-    row: u8,
-    col: u8,
-}
-
-impl Cell {
-    #[inline]
-    pub fn new(row: u8, col: u8) -> Self {
-        if row > 8 || col > 8 {
-            panic!("Cell aout of bounds (row: {}, col: {})", row, col);
-        }
-        Self { row, col }
-    }
-
-    fn as_linear(self) -> usize {
-        usize::from(self.row * 9 + self.col)
-    }
-}
-
-impl std::convert::From<u8> for Cell {
-    fn from(index: u8) -> Self {
-        if index > 80 {
-            panic!("Index out of bounds: {}", index);
-        }
-        Self::new(index / 9, index % 9)
-    }
-}
-
-impl std::convert::From<&u8> for Cell {
-    fn from(index: &u8) -> Self {
-        Self::from(*index)
-    }
-}
-
-// impl std::cmp::Ord for Cell {
-//     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-//         self.as_linear().cmp(&other.as_linear())
-//     }
-// }
 
 struct RowIterator<'a> {
     board: &'a [u8; 81],
@@ -479,20 +342,12 @@ impl IntoClusterIterator for [u8; 81] {
 // Allowed because this is a test
 #[allow(clippy::cast_possible_truncation)]
 #[cfg(test)]
-mod test {
+mod tests {
     use super::{Board, Cell, IntoClusterIterator, IntoColumnIterator, IntoRowIterator, Token};
-
-    fn sequential_board() -> Board {
-        let mut board = [0; 81];
-        for i in 0..81 {
-            board[usize::from(i)] = i;
-        }
-        Board(board)
-    }
 
     #[test]
     fn get() {
-        let board = Board::initialize_base();
+        let board = Board::consistent();
 
         for row in 0..9 {
             for col in 0..9 {
@@ -506,8 +361,8 @@ mod test {
 
     #[test]
     fn set() {
-        let mut board = Board::initialize_base();
-        assert!(board.set(Cell { row: 4, col: 5 }, Token::One));
+        let mut board = Board::consistent();
+        board.set(Cell { row: 4, col: 5 }, Token::One);
 
         for row in 0..9 {
             for col in 0..9 {
@@ -521,13 +376,11 @@ mod test {
                 }
             }
         }
-
-        assert!(!board.set(Cell::new(2, 0), Token::One));
     }
 
     #[test]
     fn reverse() {
-        let mut board = sequential_board();
+        let mut board = Board::sequential();
         board.reverse();
 
         for i in 0..81 {
@@ -537,7 +390,7 @@ mod test {
 
     #[test]
     fn rotate() {
-        let mut board = sequential_board();
+        let mut board = Board::sequential();
         board.rotate();
 
         for row in 0..9 {
@@ -549,7 +402,7 @@ mod test {
 
     #[test]
     fn mirror_columns() {
-        let mut board = sequential_board();
+        let mut board = Board::sequential();
         board.mirror_columns();
 
         for row in 0..9 {
@@ -561,7 +414,7 @@ mod test {
 
     #[test]
     fn mirror_rows() {
-        let mut board = sequential_board();
+        let mut board = Board::sequential();
         board.mirror_rows();
 
         for row in 0..9 {
@@ -573,9 +426,9 @@ mod test {
 
     #[test]
     fn swap_columns() {
-        let mut board = Board::initialize_base();
+        let mut board = Board::consistent();
         board.swap_columns(0, 2);
-        let expected = Board::initialize_base();
+        let expected = Board::consistent();
 
         for row in 0..9 {
             for col in 0..9 {
@@ -601,9 +454,9 @@ mod test {
 
     #[test]
     fn swap_rows() {
-        let mut board = Board::initialize_base();
+        let mut board = Board::consistent();
         board.swap_rows(0, 2);
-        let expected = Board::initialize_base();
+        let expected = Board::consistent();
 
         for row in 0..9 {
             for col in 0..9 {
@@ -629,10 +482,10 @@ mod test {
 
     #[test]
     fn swap_column_cluster() {
-        let mut board = Board::initialize_base();
+        let mut board = Board::consistent();
         board.swap_column_cluster(2);
         board.swap_column_cluster(1);
-        let expected = Board::initialize_base();
+        let expected = Board::consistent();
 
         for row in 0..9 {
             for col_index in 0..9 {
@@ -647,10 +500,10 @@ mod test {
 
     #[test]
     fn swap_row_cluster() {
-        let mut board = Board::initialize_base();
+        let mut board = Board::consistent();
         board.swap_row_cluster(2);
         board.swap_row_cluster(1);
-        let expected = Board::initialize_base();
+        let expected = Board::consistent();
 
         for row_index in 0..9 {
             for col in 0..9 {
@@ -665,7 +518,7 @@ mod test {
 
     #[test]
     fn shift() {
-        let mut board = sequential_board();
+        let mut board = Board::sequential();
         board.shift(1);
 
         for i in 0..81 {
@@ -675,7 +528,7 @@ mod test {
 
     #[test]
     fn row_iterator() {
-        let board = sequential_board();
+        let board = Board::sequential();
 
         for i in 0..9 {
             let iter = board.0.row(i);
@@ -687,7 +540,7 @@ mod test {
 
     #[test]
     fn column_iterator() {
-        let board = sequential_board();
+        let board = Board::sequential();
 
         for i in 0..9 {
             let iter = board.0.column(i);
@@ -699,7 +552,7 @@ mod test {
 
     #[test]
     fn cluster_iterator() {
-        let board = sequential_board();
+        let board = Board::sequential();
 
         for i in 0..9 {
             let base = (27 * (i / 3)) + 3 * (i % 3);
@@ -713,79 +566,37 @@ mod test {
     }
 
     #[test]
-    fn token_iterator() {
-        for (index, token) in Token::iter().enumerate() {
-            println!("Left: {}, Right: {}", index, token);
-            assert_eq!((index + 1) as u8, token as u8);
-        }
-    }
-
-    #[test]
-    fn cell_as_linear() {
-        for row in 0..9 {
-            for col in 0..9 {
-                assert_eq!(Cell::new(row, col).as_linear(), usize::from(row * 9 + col));
-            }
-        }
-    }
-
-    #[test]
-    fn cell_ordering() {
-        use rand::seq::SliceRandom;
-
-        let mut rng = rand::thread_rng();
-        let mut cells = [Cell::from(0); 81];
-        for i in 0..81 {
-            cells[usize::from(i)] = Cell::from(i);
-        }
-
-        cells.shuffle(&mut rng);
-
-        let mut shuffled = false;
-        for (index, cell) in cells.iter().enumerate() {
-            if cell.as_linear() != index {
-                shuffled = true;
-                break;
-            }
-        }
-        assert!(shuffled);
-        cells.sort();
-
-        for (index, cell) in cells.iter().enumerate() {
-            assert_eq!(cell.as_linear(), index);
-        }
-    }
-
-    #[test]
-    fn consistent() {
+    fn transforms_are_consistent() {
         use rand::Rng;
 
-        let mut board = Board::initialize_base();
-        assert_eq!(board.list_inconsistencies().len(), 0);
-        board.reverse();
-        assert_eq!(board.list_inconsistencies().len(), 0);
-        board.rotate();
-        assert_eq!(board.list_inconsistencies().len(), 0);
-        board.mirror_columns();
-        assert_eq!(board.list_inconsistencies().len(), 0);
-        board.mirror_rows();
-        assert_eq!(board.list_inconsistencies().len(), 0);
-        board.swap_columns(2, 1);
-        assert_eq!(board.list_inconsistencies().len(), 0);
-        board.swap_rows(1, 2);
-        assert_eq!(board.list_inconsistencies().len(), 0);
-        board.swap_column_cluster(1);
-        assert_eq!(board.list_inconsistencies().len(), 0);
-        board.swap_row_cluster(1);
-        assert_eq!(board.list_inconsistencies().len(), 0);
-        board.shift(1);
-        assert_eq!(board.list_inconsistencies().len(), 0);
+        let mut game = super::super::Game {
+            board: Board::consistent(),
+        };
+
+        assert_eq!(game.list_inconsistencies().len(), 0);
+        game.board.reverse();
+        assert_eq!(game.list_inconsistencies().len(), 0);
+        game.board.rotate();
+        assert_eq!(game.list_inconsistencies().len(), 0);
+        game.board.mirror_columns();
+        assert_eq!(game.list_inconsistencies().len(), 0);
+        game.board.mirror_rows();
+        assert_eq!(game.list_inconsistencies().len(), 0);
+        game.board.swap_columns(2, 1);
+        assert_eq!(game.list_inconsistencies().len(), 0);
+        game.board.swap_rows(1, 2);
+        assert_eq!(game.list_inconsistencies().len(), 0);
+        game.board.swap_column_cluster(1);
+        assert_eq!(game.list_inconsistencies().len(), 0);
+        game.board.swap_row_cluster(1);
+        assert_eq!(game.list_inconsistencies().len(), 0);
+        game.board.shift(1);
+        assert_eq!(game.list_inconsistencies().len(), 0);
 
         let lucky_index = rand::thread_rng().gen::<u8>() % 81;
         let lucky_cell = Cell::from(lucky_index);
-        let cell = board.get(lucky_cell) as u8;
-        board.0[usize::from(lucky_index)] = ((cell + 1) % 9) + 1;
-        assert!(!board.consistent(lucky_cell));
-        assert!(!board.list_inconsistencies().is_empty());
+        let cell = game.board.get(lucky_cell) as u8;
+        game.board.0[usize::from(lucky_index)] = ((cell + 1) % 9) + 1;
+        assert!(!game.list_inconsistencies().is_empty());
     }
 }
