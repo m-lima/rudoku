@@ -6,10 +6,12 @@ pub struct Game {
 }
 
 impl Game {
+    #[inline]
     pub fn get(&self, cell: Cell) -> Token {
         self.board[cell.index()]
     }
 
+    #[inline]
     pub fn set(&mut self, cell: Cell, token: Token) -> bool {
         self.board[cell.index()] = token;
         true
@@ -70,7 +72,7 @@ pub enum Difficulty {
 }
 
 #[repr(u8)]
-#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
 pub enum Token {
     None = 0,
     One = 1,
@@ -98,6 +100,7 @@ impl Token {
         Token::Nine,
     ];
 
+    #[inline]
     pub fn iter() -> &'static [Self] {
         &Self::TOKENS[1..10]
     }
@@ -125,7 +128,7 @@ impl std::fmt::Display for Token {
     }
 }
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
 pub struct Cell(usize);
 
 impl Cell {
@@ -140,14 +143,26 @@ impl Cell {
         Self(usize::from(row * 9 + column))
     }
 
+    #[inline]
     pub fn sector(self) -> usize {
         let row = self.0 / 9;
         let col = self.0 % 9;
         (row / 3) * 3 + col / 3
     }
 
-    fn index(self) -> usize {
+    #[inline]
+    pub(super) fn index(self) -> usize {
         self.0
+    }
+
+    #[inline]
+    fn row(self) -> usize {
+        self.0 / 9
+    }
+
+    #[inline]
+    fn column(self) -> usize {
+        self.0 % 9
     }
 }
 
@@ -167,6 +182,12 @@ impl std::convert::From<&u8> for Cell {
 impl std::convert::From<u8> for Cell {
     fn from(index: u8) -> Self {
         Self::from(usize::from(index))
+    }
+}
+
+impl std::fmt::Debug for Cell {
+    fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(fmt, "[row: {}, column: {}]", self.row(), self.column())
     }
 }
 
@@ -196,232 +217,9 @@ mod test {
     }
 }
 
-mod iter {
-    use super::Cell;
-
-    pub struct RowIndexer {
-        index: usize,
-        end: usize,
-    }
-
-    impl RowIndexer {
-        pub fn new(row: usize) -> Self {
-            assert!(row < 9, "Row index out of bounds: {}", row);
-            let index = row * 9;
-            Self {
-                index,
-                end: index + 9,
-            }
-        }
-    }
-
-    impl std::iter::Iterator for RowIndexer {
-        type Item = Cell;
-        fn next(&mut self) -> Option<Self::Item> {
-            if self.index < self.end {
-                let cell = Some(Cell::from(self.index));
-                self.index += 1;
-                cell
-            } else {
-                None
-            }
-        }
-    }
-
-    pub struct ColumnIndexer {
-        index: usize,
-    }
-
-    impl ColumnIndexer {
-        pub fn new(column: usize) -> Self {
-            assert!(column < 9, "Column index out of bounds: {}", column);
-            Self { index: column }
-        }
-    }
-
-    impl std::iter::Iterator for ColumnIndexer {
-        type Item = Cell;
-        fn next(&mut self) -> Option<Self::Item> {
-            if self.index < 81 {
-                let cell = Some(Cell::from(self.index));
-                self.index += 9;
-                cell
-            } else {
-                None
-            }
-        }
-    }
-
-    pub struct SectorIndexer {
-        index: usize,
-        wall: usize,
-        end: usize,
-    }
-
-    impl SectorIndexer {
-        pub fn new(sector: usize) -> Self {
-            assert!(sector < 9, "Sector index out of bounds: {}", sector);
-            let index = (sector / 3) * 27 + (sector % 3) * 3;
-            Self {
-                index,
-                wall: index + 3,
-                end: index + 9 + 9 + 3,
-            }
-        }
-    }
-
-    impl std::iter::Iterator for SectorIndexer {
-        type Item = Cell;
-        fn next(&mut self) -> Option<Self::Item> {
-            if self.index < self.end {
-                let cell = Some(Cell::from(self.index));
-                self.index += 1;
-                if self.index == self.wall {
-                    self.index += 6;
-                    self.wall += 9;
-                }
-                cell
-            } else {
-                None
-            }
-        }
-    }
-
-    #[cfg(test)]
-    mod tests {
-        use super::{ColumnIndexer, RowIndexer, SectorIndexer};
-
-        #[test]
-        fn row_low() {
-            #[rustfmt::skip]
-            let jig: [usize; 81] = [
-                0,1,2,3,4,5,6,7,8,
-                0,0,0,0,0,0,0,0,0,
-                0,0,0,0,0,0,0,0,0,
-                0,0,0,0,0,0,0,0,0,
-                0,0,0,0,0,0,0,0,0,
-                0,0,0,0,0,0,0,0,0,
-                0,0,0,0,0,0,0,0,0,
-                0,0,0,0,0,0,0,0,0,
-                0,0,0,0,0,0,0,0,0,
-                ];
-
-            let iter = RowIndexer::new(0);
-            for (index, cell) in iter.enumerate() {
-                assert_eq!(index, jig[cell.index()]);
-            }
-        }
-
-        #[test]
-        fn row_high() {
-            #[rustfmt::skip]
-            let jig: [usize; 81] = [
-                0,0,0,0,0,0,0,0,0,
-                0,0,0,0,0,0,0,0,0,
-                0,0,0,0,0,0,0,0,0,
-                0,0,0,0,0,0,0,0,0,
-                0,0,0,0,0,0,0,0,0,
-                0,0,0,0,0,0,0,0,0,
-                0,0,0,0,0,0,0,0,0,
-                0,0,0,0,0,0,0,0,0,
-                0,1,2,3,4,5,6,7,8,
-                ];
-
-            let iter = RowIndexer::new(8);
-            for (index, cell) in iter.enumerate() {
-                assert_eq!(index, jig[cell.index()]);
-            }
-        }
-
-        #[test]
-        fn column_low() {
-            #[rustfmt::skip]
-            let jig: [usize; 81] = [
-                0,0,0,0,0,0,0,0,0,
-                1,0,0,0,0,0,0,0,0,
-                2,0,0,0,0,0,0,0,0,
-                3,0,0,0,0,0,0,0,0,
-                4,0,0,0,0,0,0,0,0,
-                5,0,0,0,0,0,0,0,0,
-                6,0,0,0,0,0,0,0,0,
-                7,0,0,0,0,0,0,0,0,
-                8,0,0,0,0,0,0,0,0,
-                ];
-
-            let iter = ColumnIndexer::new(0);
-            for (index, cell) in iter.enumerate() {
-                assert_eq!(index, jig[cell.index()]);
-            }
-        }
-
-        #[test]
-        fn column_high() {
-            #[rustfmt::skip]
-            let jig: [usize; 81] = [
-                0,0,0,0,0,0,0,0,0,
-                0,0,0,0,0,0,0,0,1,
-                0,0,0,0,0,0,0,0,2,
-                0,0,0,0,0,0,0,0,3,
-                0,0,0,0,0,0,0,0,4,
-                0,0,0,0,0,0,0,0,5,
-                0,0,0,0,0,0,0,0,6,
-                0,0,0,0,0,0,0,0,7,
-                0,0,0,0,0,0,0,0,8,
-                ];
-
-            let iter = ColumnIndexer::new(8);
-            for (index, cell) in iter.enumerate() {
-                assert_eq!(index, jig[cell.index()]);
-            }
-        }
-
-        #[test]
-        fn sector_low() {
-            #[rustfmt::skip]
-            let jig: [usize; 81] = [
-                0,1,2,0,0,0,0,0,0,
-                3,4,5,0,0,0,0,0,0,
-                6,7,8,0,0,0,0,0,0,
-                0,0,0,0,0,0,0,0,0,
-                0,0,0,0,0,0,0,0,0,
-                0,0,0,0,0,0,0,0,0,
-                0,0,0,0,0,0,0,0,0,
-                0,0,0,0,0,0,0,0,0,
-                0,0,0,0,0,0,0,0,0,
-                ];
-
-            let iter = SectorIndexer::new(0);
-            for (index, cell) in iter.enumerate() {
-                assert_eq!(index, jig[cell.index()]);
-            }
-        }
-
-        #[test]
-        fn sector_high() {
-            #[rustfmt::skip]
-            let jig: [usize; 81] = [
-                0,0,0,0,0,0,0,0,0,
-                0,0,0,0,0,0,0,0,0,
-                0,0,0,0,0,0,0,0,0,
-                0,0,0,0,0,0,0,0,0,
-                0,0,0,0,0,0,0,0,0,
-                0,0,0,0,0,0,0,0,0,
-                0,0,0,0,0,0,0,1,2,
-                0,0,0,0,0,0,3,4,5,
-                0,0,0,0,0,0,6,7,8,
-                ];
-
-            let iter = SectorIndexer::new(8);
-            for (index, cell) in iter.enumerate() {
-                assert_eq!(index, jig[cell.index()]);
-            }
-        }
-    }
-}
-
 mod transform {
-    use super::iter::{ColumnIndexer, RowIndexer};
     use super::Board;
+    use crate::index::{ColumnIndexer, RowIndexer};
 
     fn rotate(board: &mut Board) {
         let other = *board;

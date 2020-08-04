@@ -1,9 +1,9 @@
-#![deny(warnings, clippy::pedantic)]
-#![warn(rust_2018_idioms)]
-#![allow(dead_code)]
+#![deny(warnings, clippy::pedantic, rust_2018_idioms)]
 #![cfg_attr(all(test, nightly), feature(test))]
+#![allow(dead_code)]
 
 mod game;
+mod index;
 
 fn main() {
     // let difficulty = std::env::args()
