@@ -1,40 +1,64 @@
-mod board;
-mod board_old;
-mod ops;
+// mod ops;
 
-use board::Board;
-
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone)]
 pub struct Game {
-    board: Board,
+    board: [Token; 81],
 }
 
 impl Game {
-    pub fn new(_difficulty: Difficulty) -> Self {
-        let mut board = Board::new();
-        for (index, token) in ops::random_seed().iter().map(Token::from).enumerate() {
-            board.set(Cell::from(index), token);
-        }
-        let board = ops::solve(&board).expect("Could not solve an empty board");
-        Self { board }
+    pub fn get(&self, cell: Cell) -> Token {
+        self.board[cell.index()]
     }
 
-    #[inline]
-    pub fn board(&self) -> &Board {
-        &self.board
+    pub fn set(&mut self, cell: Cell, token: Token) -> bool {
+        self.board[cell.index()] = token;
+        true
+        // ops::consistent(self.board, cell)
     }
 
-    fn list_inconsistencies(&self) -> Vec<Cell> {
-        let mut inconsistencies = Vec::new();
+    // pub fn list_inconsistencies(&self) -> Vec<Cell> {
+    //     let mut inconsistencies = Vec::new();
+    //     for index in 0..81 {
+    //         let cell = Cell(index);
+    //         if !ops::consistent(&self.board, cell) {
+    //             inconsistencies.push(cell);
+    //         }
+    //     }
+    //     inconsistencies
+    // }
+}
+
+impl std::fmt::Display for Game {
+    // Allowed because it is more readable
+    #[allow(clippy::non_ascii_literal)]
+    fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        writeln!(fmt, "┏━━━━━┯━━━━━┯━━━━━┓")?;
         for row in 0..9 {
-            for col in 0..9 {
-                let cell = Cell { row, col };
-                if !ops::consistent(&self.board, cell) {
-                    inconsistencies.push(cell);
+            write!(fmt, "┃")?;
+            for col in 0..8 {
+                let cell = Cell::new(row, col);
+                if col % 3 == 2 {
+                    write!(fmt, "{}│", self.get(cell))?;
+                } else {
+                    write!(fmt, "{} ", self.get(cell))?;
                 }
             }
+            writeln!(fmt, "{}┃", self.get(Cell::new(row, 8)))?;
+
+            if row < 8 && row % 3 == 2 {
+                writeln!(fmt, "┠─────┼─────┼─────┨")?;
+            }
         }
-        inconsistencies
+        writeln!(fmt, "┗━━━━━┷━━━━━┷━━━━━┛")
+    }
+}
+
+impl std::fmt::Debug for Game {
+    fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        for i in 0..80 {
+            write!(fmt, "{},", self.board[i])?;
+        }
+        write!(fmt, "{}", self.board[80])
     }
 }
 
@@ -61,27 +85,27 @@ pub enum Token {
 }
 
 impl Token {
-    #[inline]
-    pub fn iter() -> impl Iterator<Item = Self> {
-        TokenIterator(1)
+    const TOKENS: [Self; 10] = [
+        Token::None,
+        Token::One,
+        Token::Two,
+        Token::Three,
+        Token::Four,
+        Token::Five,
+        Token::Six,
+        Token::Seven,
+        Token::Eight,
+        Token::Nine,
+    ];
+
+    pub fn iter() -> &'static [Self] {
+        &Self::TOKENS[1..10]
     }
 }
 
 impl std::convert::From<u8> for Token {
     fn from(token: u8) -> Self {
-        match token {
-            0 => Token::None,
-            1 => Token::One,
-            2 => Token::Two,
-            3 => Token::Three,
-            4 => Token::Four,
-            5 => Token::Five,
-            6 => Token::Six,
-            7 => Token::Seven,
-            8 => Token::Eight,
-            9 => Token::Nine,
-            _ => panic!("Token out of bounds: {}", token),
-        }
+        Self::TOKENS[usize::from(token)]
     }
 }
 
@@ -101,129 +125,296 @@ impl std::fmt::Display for Token {
     }
 }
 
-struct TokenIterator(u8);
-
-impl std::iter::Iterator for TokenIterator {
-    type Item = Token;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.0 > 9 {
-            None
-        } else {
-            let token = Some(Token::from(self.0));
-            self.0 += 1;
-            token
-        }
-    }
-}
-
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
-pub struct Cell {
-    row: usize,
-    col: usize,
-}
+pub struct Cell(usize);
 
 impl Cell {
     #[inline]
-    pub fn new(row: usize, col: usize) -> Self {
+    pub fn new(row: u8, column: u8) -> Self {
         assert!(
-            row < 9 && col < 9,
-            "Cell aout of bounds (row: {}, col: {})",
+            row < 9 && column < 9,
+            "Cell aout of bounds (row: {}, column: {})",
             row,
-            col
+            column
         );
-        Self { row, col }
+        Self(usize::from(row * 9 + column))
     }
 
-    fn lin(self) -> usize {
-        self.row * 9 + self.col
+    pub fn sector(self) -> usize {
+        let row = self.0 / 9;
+        let col = self.0 % 9;
+        (row / 3) * 3 + col / 3
     }
 
-    fn row(self) -> usize {
-        self.row
-    }
-
-    fn col(self) -> usize {
-        self.col
-    }
-
-    fn sec(self) -> usize {
-        (self.row / 3) * 3 + self.col / 3
-    }
-
-    fn idx(self) -> usize {
-        self.row / 3 + (self.col / 3) * 3
+    fn index(self) -> usize {
+        self.0
     }
 }
 
 impl std::convert::From<usize> for Cell {
     fn from(index: usize) -> Self {
         assert!(index < 81, "Index out of bounds: {}", index);
-        Self::new(index / 9, index % 9)
+        Self(index)
     }
 }
 
 impl std::convert::From<&u8> for Cell {
     fn from(index: &u8) -> Self {
-        Self::from(*index)
+        Self::from(usize::from(*index))
     }
 }
 
 impl std::convert::From<u8> for Cell {
     fn from(index: u8) -> Self {
-        assert!(index < 81, "Index out of bounds: {}", index);
-        Self::new(usize::from(index) / 9, usize::from(index) % 9)
+        Self::from(usize::from(index))
     }
 }
 
-// // Allowed because this is a test
-// #[allow(clippy::cast_possible_truncation)]
-// #[cfg(test)]
-// mod tests {
-//     use super::{Cell, Token};
+#[cfg(test)]
+mod test {
+    use super::Cell;
 
-//     #[test]
-//     fn token_iterator() {
-//         for (index, token) in Token::iter().enumerate() {
-//             println!("Left: {}, Right: {}", index, token);
-//             assert_eq!((index + 1) as u8, token as u8);
-//         }
-//     }
+    #[test]
+    fn cell_sector() {
+        #[rustfmt::skip]
+        let jig: [usize; 81] = [
+            0,0,0,1,1,1,2,2,2,
+            0,0,0,1,1,1,2,2,2,
+            0,0,0,1,1,1,2,2,2,
+            3,3,3,4,4,4,5,5,5,
+            3,3,3,4,4,4,5,5,5,
+            3,3,3,4,4,4,5,5,5,
+            6,6,6,7,7,7,8,8,8,
+            6,6,6,7,7,7,8,8,8,
+            6,6,6,7,7,7,8,8,8,
+        ];
 
-//     #[test]
-//     fn cell_sec() {
-//         assert!(false);
-//     }
+        for i in 0..81 {
+            let cell = Cell(i);
+            assert_eq!(cell.sector(), jig[cell.index()]);
+        }
+    }
+}
 
-//     #[test]
-//     fn cell_idx() {
-//         assert!(false);
-//     }
+mod iter {
+    use super::Cell;
 
-//     #[test]
-//     fn cell_ordering() {
-//         use rand::seq::SliceRandom;
+    struct RowIndexer {
+        index: usize,
+        end: usize,
+    }
 
-//         let mut rng = rand::thread_rng();
-//         let mut cells = [Cell::from(0); 81];
-//         for i in 0..81 {
-//             cells[usize::from(i)] = Cell::from(i);
-//         }
+    impl RowIndexer {
+        pub fn new(row: usize) -> Self {
+            assert!(row < 9, "Row index out of bounds: {}", row);
+            let index = row * 9;
+            Self {
+                index,
+                end: index + 9,
+            }
+        }
+    }
 
-//         cells.shuffle(&mut rng);
+    impl std::iter::Iterator for RowIndexer {
+        type Item = Cell;
+        fn next(&mut self) -> Option<Self::Item> {
+            if self.index < self.end {
+                let cell = Some(Cell::from(self.index));
+                self.index += 1;
+                cell
+            } else {
+                None
+            }
+        }
+    }
 
-//         let mut shuffled = false;
-//         for (index, cell) in cells.iter().enumerate() {
-//             if cell.as_linear() != index {
-//                 shuffled = true;
-//                 break;
-//             }
-//         }
-//         assert!(shuffled);
-//         cells.sort();
+    struct ColumnIndexer {
+        index: usize,
+    }
 
-//         for (index, cell) in cells.iter().enumerate() {
-//             assert_eq!(cell.as_linear(), index);
-//         }
-//     }
-// }
+    impl ColumnIndexer {
+        pub fn new(column: usize) -> Self {
+            assert!(column < 9, "Column index out of bounds: {}", column);
+            Self { index: column }
+        }
+    }
+
+    impl std::iter::Iterator for ColumnIndexer {
+        type Item = Cell;
+        fn next(&mut self) -> Option<Self::Item> {
+            if self.index < 81 {
+                let cell = Some(Cell::from(self.index));
+                self.index += 9;
+                cell
+            } else {
+                None
+            }
+        }
+    }
+
+    struct SectorIndexer {
+        index: usize,
+        wall: usize,
+        end: usize,
+    }
+
+    impl SectorIndexer {
+        pub fn new(sector: usize) -> Self {
+            assert!(sector < 9, "Sector index out of bounds: {}", sector);
+            let index = (sector / 3) * 27 + (sector % 3) * 3;
+            Self {
+                index,
+                wall: index + 3,
+                end: index + 9 + 9 + 3,
+            }
+        }
+    }
+
+    impl std::iter::Iterator for SectorIndexer {
+        type Item = Cell;
+        fn next(&mut self) -> Option<Self::Item> {
+            if self.index < self.end {
+                let cell = Some(Cell::from(self.index));
+                self.index += 1;
+                if self.index == self.wall {
+                    self.index += 6;
+                    self.wall += 9;
+                }
+                cell
+            } else {
+                None
+            }
+        }
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::{ColumnIndexer, RowIndexer, SectorIndexer};
+
+        #[test]
+        fn row_low() {
+            #[rustfmt::skip]
+            let jig: [usize; 81] = [
+                0,1,2,3,4,5,6,7,8,
+                0,0,0,0,0,0,0,0,0,
+                0,0,0,0,0,0,0,0,0,
+                0,0,0,0,0,0,0,0,0,
+                0,0,0,0,0,0,0,0,0,
+                0,0,0,0,0,0,0,0,0,
+                0,0,0,0,0,0,0,0,0,
+                0,0,0,0,0,0,0,0,0,
+                0,0,0,0,0,0,0,0,0,
+                ];
+
+            let iter = RowIndexer::new(0);
+            for (index, cell) in iter.enumerate() {
+                assert_eq!(index, jig[cell.index()]);
+            }
+        }
+
+        #[test]
+        fn row_high() {
+            #[rustfmt::skip]
+            let jig: [usize; 81] = [
+                0,0,0,0,0,0,0,0,0,
+                0,0,0,0,0,0,0,0,0,
+                0,0,0,0,0,0,0,0,0,
+                0,0,0,0,0,0,0,0,0,
+                0,0,0,0,0,0,0,0,0,
+                0,0,0,0,0,0,0,0,0,
+                0,0,0,0,0,0,0,0,0,
+                0,0,0,0,0,0,0,0,0,
+                0,1,2,3,4,5,6,7,8,
+                ];
+
+            let iter = RowIndexer::new(8);
+            for (index, cell) in iter.enumerate() {
+                assert_eq!(index, jig[cell.index()]);
+            }
+        }
+
+        #[test]
+        fn column_low() {
+            #[rustfmt::skip]
+            let jig: [usize; 81] = [
+                0,0,0,0,0,0,0,0,0,
+                1,0,0,0,0,0,0,0,0,
+                2,0,0,0,0,0,0,0,0,
+                3,0,0,0,0,0,0,0,0,
+                4,0,0,0,0,0,0,0,0,
+                5,0,0,0,0,0,0,0,0,
+                6,0,0,0,0,0,0,0,0,
+                7,0,0,0,0,0,0,0,0,
+                8,0,0,0,0,0,0,0,0,
+                ];
+
+            let iter = ColumnIndexer::new(0);
+            for (index, cell) in iter.enumerate() {
+                assert_eq!(index, jig[cell.index()]);
+            }
+        }
+
+        #[test]
+        fn column_high() {
+            #[rustfmt::skip]
+            let jig: [usize; 81] = [
+                0,0,0,0,0,0,0,0,0,
+                0,0,0,0,0,0,0,0,1,
+                0,0,0,0,0,0,0,0,2,
+                0,0,0,0,0,0,0,0,3,
+                0,0,0,0,0,0,0,0,4,
+                0,0,0,0,0,0,0,0,5,
+                0,0,0,0,0,0,0,0,6,
+                0,0,0,0,0,0,0,0,7,
+                0,0,0,0,0,0,0,0,8,
+                ];
+
+            let iter = ColumnIndexer::new(8);
+            for (index, cell) in iter.enumerate() {
+                assert_eq!(index, jig[cell.index()]);
+            }
+        }
+
+        #[test]
+        fn sector_low() {
+            #[rustfmt::skip]
+            let jig: [usize; 81] = [
+                0,1,2,0,0,0,0,0,0,
+                3,4,5,0,0,0,0,0,0,
+                6,7,8,0,0,0,0,0,0,
+                0,0,0,0,0,0,0,0,0,
+                0,0,0,0,0,0,0,0,0,
+                0,0,0,0,0,0,0,0,0,
+                0,0,0,0,0,0,0,0,0,
+                0,0,0,0,0,0,0,0,0,
+                0,0,0,0,0,0,0,0,0,
+                ];
+
+            let iter = SectorIndexer::new(0);
+            for (index, cell) in iter.enumerate() {
+                assert_eq!(index, jig[cell.index()]);
+            }
+        }
+
+        #[test]
+        fn sector_high() {
+            #[rustfmt::skip]
+            let jig: [usize; 81] = [
+                0,0,0,0,0,0,0,0,0,
+                0,0,0,0,0,0,0,0,0,
+                0,0,0,0,0,0,0,0,0,
+                0,0,0,0,0,0,0,0,0,
+                0,0,0,0,0,0,0,0,0,
+                0,0,0,0,0,0,0,0,0,
+                0,0,0,0,0,0,0,1,2,
+                0,0,0,0,0,0,3,4,5,
+                0,0,0,0,0,0,6,7,8,
+                ];
+
+            let iter = SectorIndexer::new(8);
+            for (index, cell) in iter.enumerate() {
+                assert_eq!(index, jig[cell.index()]);
+            }
+        }
+    }
+}
