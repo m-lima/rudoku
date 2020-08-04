@@ -1,48 +1,196 @@
-// pub mod shuffle;
 use super::{Cell, Token};
 
 #[derive(Copy, Clone)]
-pub struct Builder([u8; 81]);
-
-#[derive(Copy, Clone)]
-pub struct Board {
-    row_major: [[Token; 9]; 9],
-    col_major: [[Token; 9]; 9],
-    sec_major: [[Token; 9]; 9],
-}
+pub struct Board([u8; 81]);
 
 impl Board {
     pub fn new() -> Self {
-        Self {
-            row_major: [[Token::None; 9]; 9],
-            col_major: [[Token::None; 9]; 9],
-            sec_major: [[Token::None; 9]; 9],
+        Self([0; 81])
+    }
+
+    #[cfg(test)]
+    pub fn sequential() -> Self {
+        let mut board = [0; 81];
+        for i in 0..81 {
+            board[usize::from(i)] = i;
+        }
+        Self(board)
+    }
+
+    #[cfg(test)]
+    pub fn consistent() -> Self {
+        Self([
+            1, 2, 3, 4, 5, 6, 7, 8, 9, 4, 5, 6, 7, 8, 9, 1, 2, 3, 7, 8, 9, 1, 2, 3, 4, 5, 6, 2, 3,
+            4, 5, 6, 7, 8, 9, 1, 5, 6, 7, 8, 9, 1, 2, 3, 4, 8, 9, 1, 2, 3, 4, 5, 6, 7, 3, 4, 5, 6,
+            7, 8, 9, 1, 2, 6, 7, 8, 9, 1, 2, 3, 4, 5, 9, 1, 2, 3, 4, 5, 6, 7, 8,
+        ])
+    }
+
+    pub fn shuffle(&mut self) {
+        use rand::Rng;
+        let mut rng = rand::thread_rng();
+        for _ in 0..128 {
+            match rng.gen::<u8>() % 9 {
+                0 => self.reverse(),
+                1 => self.rotate(),
+                2 => self.mirror_columns(),
+                3 => self.mirror_rows(),
+                4 => self.swap_columns(rng.gen::<u8>() % 3, rng.gen::<u8>() % 3),
+                5 => self.swap_rows(rng.gen::<u8>() % 3, rng.gen::<u8>() % 3),
+                6 => self.swap_column_cluster(rng.gen::<u8>() % 3),
+                7 => self.swap_row_cluster(rng.gen::<u8>() % 3),
+                8 => self.shift(rng.gen::<u8>() % 7),
+                _ => unreachable!(),
+            }
         }
     }
 
+    #[inline]
     pub fn get(&self, cell: Cell) -> Token {
-        self.row_major[cell.row()][cell.col()]
+        Token::from(self.0[cell.lin()])
     }
 
     pub fn set(&mut self, cell: Cell, token: Token) {
-        self.row_major[cell.row()][cell.col()] = token;
-        self.col_major[cell.col()][cell.row()] = token;
-        self.sec_major[cell.sec()][cell.idx()] = token;
+        self.0[cell.lin()] = token as u8;
     }
 
-    pub fn row(&self, row: usize) -> &[Token; 9] {
-        assert!(row < 9, "Row index out of bounds: {}", row);
-        &self.row_major[row]
+    pub fn row<'a>(&'a self, row: u8) -> impl 'a + Iterator<Item = u8> {
+        self.0.row(row)
     }
 
-    pub fn column(&self, column: usize) -> &[Token; 9] {
-        assert!(column < 9, "Column index out of bounds: {}", column);
-        &self.col_major[column]
+    pub fn column<'a>(&'a self, row: u8) -> impl 'a + Iterator<Item = u8> {
+        self.0.column(row)
     }
 
-    pub fn sector(&self, sector: usize) -> &[Token; 9] {
-        assert!(sector < 9, "Sector index out of bounds: {}", sector);
-        &self.sec_major[sector]
+    pub fn cluster<'a>(&'a self, row: u8) -> impl 'a + Iterator<Item = u8> {
+        self.0.cluster(row)
+    }
+
+    fn reverse(&mut self) {
+        let temp = self.0;
+        for i in 0..self.0.len() {
+            self.0[i] = temp[temp.len() - i - 1];
+        }
+    }
+
+    fn rotate(&mut self) {
+        let other = self.0;
+        for i in 0..9 {
+            for (index, token) in other.column(i).enumerate() {
+                self.0[usize::from(i) * 9 + index] = token;
+            }
+        }
+    }
+
+    fn mirror_columns(&mut self) {
+        let other = self.0;
+        for i in 0..9 {
+            for (index, token) in other.column(i).enumerate() {
+                self.0[index * 9 + (8 - usize::from(i))] = token;
+            }
+        }
+    }
+
+    fn mirror_rows(&mut self) {
+        let other = self.0;
+        for i in 0..9 {
+            for (index, token) in other.row(i).enumerate() {
+                self.0[(8 - usize::from(i)) * 9 + index] = token;
+            }
+        }
+    }
+
+    fn swap_columns(&mut self, cluster_column: u8, pivot: u8) {
+        if cluster_column > 2 {
+            panic!("There are only three cluster columns: {}", cluster_column);
+        }
+
+        if pivot > 2 {
+            panic!("There are only three columns per cluster: {}", pivot);
+        }
+
+        let other = self.0;
+        let col1 = usize::from(((pivot + 1) % 3) + cluster_column * 3);
+        let col2 = usize::from(((pivot + 2) % 3) + cluster_column * 3);
+
+        for row in 0..9 {
+            let row_ref = row * 9;
+            self.0[row_ref + col1] = other[row_ref + col2];
+            self.0[row_ref + col2] = other[row_ref + col1];
+        }
+    }
+
+    fn swap_rows(&mut self, cluster_row: u8, pivot: u8) {
+        if cluster_row > 2 {
+            panic!("There are only three cluster rows: {}", cluster_row);
+        }
+
+        if pivot > 2 {
+            panic!("There are only three rows per cluster: {}", pivot);
+        }
+
+        let other = self.0;
+        let row1 = usize::from(((pivot + 1) % 3) + cluster_row * 3) * 9;
+        let row2 = usize::from(((pivot + 2) % 3) + cluster_row * 3) * 9;
+
+        self.0[row1..(9 + row1)].clone_from_slice(&other[row2..(9 + row2)]);
+        self.0[row2..(9 + row2)].clone_from_slice(&other[row1..(9 + row1)]);
+    }
+
+    fn swap_column_cluster(&mut self, pivot: u8) {
+        if pivot > 2 {
+            panic!("There are only three cluster columns: {}", pivot);
+        }
+
+        let other = self.0;
+        let col1 = usize::from(((pivot + 1) % 3) * 3);
+        let col2 = usize::from(((pivot + 1) % 3) * 3);
+
+        for row in 0..9 {
+            let row_ref = row * 9;
+            self.0[row_ref + col1] = other[row_ref + col2];
+            self.0[row_ref + col1 + 1] = other[row_ref + col2 + 1];
+            self.0[row_ref + col1 + 2] = other[row_ref + col2 + 2];
+
+            self.0[row_ref + col2] = other[row_ref + col1];
+            self.0[row_ref + col2 + 1] = other[row_ref + col1 + 1];
+            self.0[row_ref + col2 + 2] = other[row_ref + col1 + 2];
+        }
+    }
+
+    fn swap_row_cluster(&mut self, pivot: u8) {
+        if pivot > 2 {
+            panic!("There are only three cluster rows: {}", pivot);
+        }
+
+        let other = self.0;
+        let row1 = usize::from(((pivot + 1) % 3) * 3) * 9;
+        let row2 = usize::from(((pivot + 1) % 3) * 3) * 9;
+
+        self.0[row1..(9 + row1)].clone_from_slice(&other[row2..(9 + row2)]);
+        self.0[row1..(9 + row1)].clone_from_slice(&other[row2..(9 + row2)]);
+        self.0[row1..(9 + row1)].clone_from_slice(&other[row2..(9 + row2)]);
+        self.0[row2..(9 + row2)].clone_from_slice(&other[row1..(9 + row1)]);
+        self.0[row2..(9 + row2)].clone_from_slice(&other[row1..(9 + row1)]);
+        self.0[row2..(9 + row2)].clone_from_slice(&other[row1..(9 + row1)]);
+    }
+
+    fn shift(&mut self, amount: u8) {
+        if amount > 7 {
+            panic!("A cell can only be shifted up to seven places: {}", amount);
+        }
+
+        for token in self.0.iter_mut() {
+            *token = ((*token + amount) % 9) + 1;
+        }
+    }
+}
+
+impl std::ops::Deref for Board {
+    type Target = [u8; 81];
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 
@@ -51,17 +199,17 @@ impl std::fmt::Display for Board {
     #[allow(clippy::non_ascii_literal)]
     fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         writeln!(fmt, "┏━━━━━┯━━━━━┯━━━━━┓")?;
-        for row in 0..9 {
+        for col in 0..9 {
             write!(fmt, "┃")?;
-            for col in 0..8 {
-                if col % 3 == 2 {
-                    write!(fmt, "{}│", self.row_major[row][col])?;
+            for row in 0..8 {
+                if row % 3 == 2 {
+                    write!(fmt, "{}│", self.get(Cell { row, col }))?;
                 } else {
-                    write!(fmt, "{} ", self.row_major[row][col])?;
+                    write!(fmt, "{} ", self.get(Cell { row, col }))?;
                 }
             }
-            writeln!(fmt, "{}┃", self.row_major[row][8])?;
-            if row < 8 && row % 3 == 2 {
+            writeln!(fmt, "{}┃", self.get(Cell { row: 8, col }))?;
+            if col < 8 && col % 3 == 2 {
                 writeln!(fmt, "┠─────┼─────┼─────┨")?;
             }
         }
@@ -71,15 +219,123 @@ impl std::fmt::Display for Board {
 
 impl std::fmt::Debug for Board {
     fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        for row in 0..8 {
-            for col in 0..9 {
-                write!(fmt, "{},", self.row_major[row][col])?;
-            }
+        for i in 0..80 {
+            write!(fmt, "{},", self.0[i])?;
         }
-        for col in 0..8 {
-            write!(fmt, "{},", self.row_major[8][col])?;
+        write!(fmt, "{}", self.0[80])
+    }
+}
+
+struct RowIterator<'a> {
+    board: &'a [u8; 81],
+    base: usize,
+    index: usize,
+}
+
+impl std::iter::Iterator for RowIterator<'_> {
+    type Item = u8;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.index < 9 {
+            let token = Some(self.board[self.base * 9 + self.index]);
+            self.index += 1;
+            token
+        } else {
+            None
         }
-        write!(fmt, "{}", self.row_major[8][8])
+    }
+}
+
+trait IntoRowIterator {
+    fn row(&self, index: u8) -> RowIterator<'_>;
+}
+
+impl IntoRowIterator for [u8; 81] {
+    fn row(&self, index: u8) -> RowIterator<'_> {
+        if index > 8 {
+            panic!("Invalid row: {}", index);
+        }
+        RowIterator {
+            board: &self,
+            base: usize::from(index),
+            index: 0,
+        }
+    }
+}
+
+struct ColumnIterator<'a> {
+    board: &'a [u8; 81],
+    base: usize,
+    index: usize,
+}
+
+impl std::iter::Iterator for ColumnIterator<'_> {
+    type Item = u8;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.index < 9 {
+            let token = Some(self.board[self.base + self.index * 9]);
+            self.index += 1;
+            token
+        } else {
+            None
+        }
+    }
+}
+
+trait IntoColumnIterator {
+    fn column(&self, index: u8) -> ColumnIterator<'_>;
+}
+
+impl IntoColumnIterator for [u8; 81] {
+    fn column(&self, index: u8) -> ColumnIterator<'_> {
+        if index > 8 {
+            panic!("Invalid column: {}", index);
+        }
+        ColumnIterator {
+            board: &self,
+            base: usize::from(index),
+            index: 0,
+        }
+    }
+}
+
+struct ClusterIterator<'a> {
+    board: &'a [u8; 81],
+    base: usize,
+    index: usize,
+}
+
+impl std::iter::Iterator for ClusterIterator<'_> {
+    type Item = u8;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.index < 9 {
+            let token = Some(self.board[self.base + ((self.index / 3) * 9) + (self.index % 3)]);
+            self.index += 1;
+            token
+        } else {
+            None
+        }
+    }
+}
+
+trait IntoClusterIterator {
+    fn cluster(&self, index: u8) -> ClusterIterator<'_>;
+}
+
+impl IntoClusterIterator for [u8; 81] {
+    fn cluster(&self, index: u8) -> ClusterIterator<'_> {
+        if index > 8 {
+            panic!("Invalid cluster: {}", index);
+        }
+        let col = 3 * (index % 3);
+        let row = 3 * (index / 3);
+        ClusterIterator {
+            board: &self,
+            base: usize::from(row * 9 + col),
+            index: 0,
+        }
     }
 }
 
