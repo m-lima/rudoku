@@ -185,13 +185,14 @@ fn random_sequence() -> [u8; 81] {
 //     false
 // }
 
-#[cfg(test)]
+#[cfg(all(test, nightly))]
 mod benches {
+    extern crate test;
     use super::{Board, Cell};
     use test::Bencher;
 
     #[bench]
-    fn consistent(bench: &mut Bencher) {
+    fn consistent_orig(bench: &mut Bencher) {
         let board = Board::consistent();
 
         bench.iter(|| {

@@ -3,10 +3,12 @@ name = "sudoku"
 version = "0.1.0"
 authors = ["Marcelo Lima <marcelowind@gmail.com>"]
 edition = "2018"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+build = "build.rs"
 
 [dependencies]
 crossbeam = "0.7"
 crossbeam-utils = "0.7"
 rand = "0.7"
+
+[build-dependencies]
+rustc_version = "0.2"

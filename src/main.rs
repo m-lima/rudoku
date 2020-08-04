@@ -1,6 +1,8 @@
 #![deny(warnings, clippy::pedantic)]
 #![warn(rust_2018_idioms)]
+// TODO remove
 #![allow(dead_code)]
+#![cfg_attr(all(test, nightly), feature(test))]
 
 mod game;
 
@@ -16,7 +18,4 @@ fn main() {
     let game = game::Game::new(difficulty);
     println!("{}", game.board());
     println!("{:?}", game.board());
-    // let removed = game::prune(&mut board, level);
-    // println!("{}", board);
-    // println!("Removed {}", removed);
 }
