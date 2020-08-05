@@ -1,4 +1,4 @@
-use super:{Board, Token};
+use super::{Board, Token};
 use crate::index::{ColumnIndexer, RowIndexer};
 
 fn shift(board: &mut Board, amount: u8) {
@@ -67,40 +67,43 @@ fn swap_rows(board: &mut Board, cluster_row: usize, pivot: usize) {
 fn swap_column_cluster(board: &mut Board, pivot: usize) {
     let other = *board;
     let col1 = ((pivot + 1) % 3) * 3;
-    let col2 = ((pivot + 1) % 3) * 3;
+    let col2 = ((pivot + 2) % 3) * 3;
 
     let first = ColumnIndexer::new(col1);
     let second = ColumnIndexer::new(col2);
     for (first, second) in first.zip(second) {
-        board[first.index()] = other[second.index()];
-        board[first.index() + 1] = other[second.index() + 1];
-        board[first.index() + 1] = other[second.index() + 2];
-
-        board[second.index()] = other[first.index()];
-        board[second.index() + 1] = other[first.index() + 1];
-        board[second.index() + 2] = other[first.index() + 2];
+        let first = first.index();
+        let second = second.index();
+        board[first..(3 + first)].clone_from_slice(&other[second..(3 + second)]);
+        board[second..(3 + second)].clone_from_slice(&other[first..(3 + first)]);
     }
 }
 
 fn swap_row_cluster(board: &mut Board, pivot: usize) {
     let other = *board;
     let row1 = (((pivot + 1) % 3) * 3) * 9;
-    let row2 = (((pivot + 1) % 3) * 3) * 9;
+    let row2 = (((pivot + 2) % 3) * 3) * 9;
 
-    board[row1..(9 + row1)].clone_from_slice(&other[row2..(9 + row2)]);
-    board[row1..(9 + row1)].clone_from_slice(&other[row2..(9 + row2)]);
-    board[row1..(9 + row1)].clone_from_slice(&other[row2..(9 + row2)]);
-    board[row2..(9 + row2)].clone_from_slice(&other[row1..(9 + row1)]);
-    board[row2..(9 + row2)].clone_from_slice(&other[row1..(9 + row1)]);
-    board[row2..(9 + row2)].clone_from_slice(&other[row1..(9 + row1)]);
+    board[row1..(27 + row1)].clone_from_slice(&other[row2..(27 + row2)]);
+    board[row2..(27 + row2)].clone_from_slice(&other[row1..(27 + row1)]);
 }
 
 #[cfg(test)]
 mod tests {
+    use super::{Board, Token};
+
+    fn tokenize(board: [u8; 81]) -> Board {
+        let mut tokens = [Token::None; 81];
+        for i in 0..81 {
+            tokens[i] = Token::from(board[i]);
+        }
+        tokens
+    }
+
     #[test]
     fn shift() {
         #[rustfmt::skip]
-        let jig: [usize; 81] = [
+        let mut jig  = tokenize([
             0,1,2,3,4,5,6,7,8,
             9,0,1,2,3,4,5,6,7,
             8,9,0,1,2,3,4,5,6,
@@ -110,48 +113,262 @@ mod tests {
             4,5,6,7,8,9,0,1,2,
             3,4,5,6,7,8,9,0,1,
             2,3,4,5,6,7,8,9,0,
-            ];
+            ]);
 
         #[rustfmt::skip]
-        let expected: [usize; 81] = [
-            0,1,2,3,4,5,6,7,8,
-            9,0,1,2,3,4,5,6,7,
-            8,9,0,1,2,3,4,5,6,
-            7,8,9,0,1,2,3,4,5,
-            6,7,8,9,0,1,2,3,4,
-            5,6,7,8,9,0,1,2,3,
-            4,5,6,7,8,9,0,1,2,
-            3,4,5,6,7,8,9,0,1,
-            2,3,4,5,6,7,8,9,0,
-            ];
+        let expected = tokenize([
+            0,3,4,5,6,7,8,9,1,
+            2,0,3,4,5,6,7,8,9,
+            1,2,0,3,4,5,6,7,8,
+            9,1,2,0,3,4,5,6,7,
+            8,9,1,2,0,3,4,5,6,
+            7,8,9,1,2,0,3,4,5,
+            6,7,8,9,1,2,0,3,4,
+            5,6,7,8,9,1,2,0,3,
+            4,5,6,7,8,9,1,2,0,
+            ]);
 
+        super::shift(&mut jig, 2);
+        for i in 0..81 {
+            assert_eq!(jig[i], expected[i]);
+        }
     }
 
     #[test]
     fn rotate() {
+        #[rustfmt::skip]
+        let mut jig  = tokenize([
+            0,0,0,0,0,0,0,0,0,
+            1,1,1,1,1,1,1,1,1,
+            2,2,2,2,2,2,2,2,2,
+            3,3,3,3,3,3,3,3,3,
+            4,4,4,4,4,4,4,4,4,
+            5,5,5,5,5,5,5,5,5,
+            6,6,6,6,6,6,6,6,6,
+            7,7,7,7,7,7,7,7,7,
+            8,8,8,8,8,8,8,8,8,
+            ]);
+
+        #[rustfmt::skip]
+        let expected = tokenize([
+            0,1,2,3,4,5,6,7,8,
+            0,1,2,3,4,5,6,7,8,
+            0,1,2,3,4,5,6,7,8,
+            0,1,2,3,4,5,6,7,8,
+            0,1,2,3,4,5,6,7,8,
+            0,1,2,3,4,5,6,7,8,
+            0,1,2,3,4,5,6,7,8,
+            0,1,2,3,4,5,6,7,8,
+            0,1,2,3,4,5,6,7,8,
+            ]);
+
+        super::rotate(&mut jig);
+        for i in 0..81 {
+            assert_eq!(jig[i], expected[i]);
+        }
     }
 
     #[test]
     fn mirror_columns() {
+        #[rustfmt::skip]
+        let mut jig  = tokenize([
+            8,7,6,5,4,3,2,1,0,
+            8,7,6,5,4,3,2,1,0,
+            8,7,6,5,4,3,2,1,0,
+            8,7,6,5,4,3,2,1,0,
+            8,7,6,5,4,3,2,1,0,
+            8,7,6,5,4,3,2,1,0,
+            8,7,6,5,4,3,2,1,0,
+            8,7,6,5,4,3,2,1,0,
+            8,7,6,5,4,3,2,1,0,
+            ]);
+
+        #[rustfmt::skip]
+        let expected = tokenize([
+            0,1,2,3,4,5,6,7,8,
+            0,1,2,3,4,5,6,7,8,
+            0,1,2,3,4,5,6,7,8,
+            0,1,2,3,4,5,6,7,8,
+            0,1,2,3,4,5,6,7,8,
+            0,1,2,3,4,5,6,7,8,
+            0,1,2,3,4,5,6,7,8,
+            0,1,2,3,4,5,6,7,8,
+            0,1,2,3,4,5,6,7,8,
+            ]);
+
+        super::mirror_columns(&mut jig);
+        for i in 0..81 {
+            assert_eq!(jig[i], expected[i]);
+        }
     }
 
     #[test]
     fn mirror_rows() {
+        #[rustfmt::skip]
+        let mut jig  = tokenize([
+            0,0,0,0,0,0,0,0,0,
+            1,1,1,1,1,1,1,1,1,
+            2,2,2,2,2,2,2,2,2,
+            3,3,3,3,3,3,3,3,3,
+            4,4,4,4,4,4,4,4,4,
+            5,5,5,5,5,5,5,5,5,
+            6,6,6,6,6,6,6,6,6,
+            7,7,7,7,7,7,7,7,7,
+            8,8,8,8,8,8,8,8,8,
+            ]);
+
+        #[rustfmt::skip]
+        let expected = tokenize([
+            8,8,8,8,8,8,8,8,8,
+            7,7,7,7,7,7,7,7,7,
+            6,6,6,6,6,6,6,6,6,
+            5,5,5,5,5,5,5,5,5,
+            4,4,4,4,4,4,4,4,4,
+            3,3,3,3,3,3,3,3,3,
+            2,2,2,2,2,2,2,2,2,
+            1,1,1,1,1,1,1,1,1,
+            0,0,0,0,0,0,0,0,0,
+            ]);
+
+        super::mirror_rows(&mut jig);
+        for i in 0..81 {
+            assert_eq!(jig[i], expected[i]);
+        }
     }
 
     #[test]
     fn swap_columns() {
+        #[rustfmt::skip]
+        let mut jig  = tokenize([
+            0,1,2,3,4,5,6,7,8,
+            9,0,1,2,3,4,5,6,7,
+            8,9,0,1,2,3,4,5,6,
+            7,8,9,0,1,2,3,4,5,
+            6,7,8,9,0,1,2,3,4,
+            5,6,7,8,9,0,1,2,3,
+            4,5,6,7,8,9,0,1,2,
+            3,4,5,6,7,8,9,0,1,
+            2,3,4,5,6,7,8,9,0,
+            ]);
+
+        #[rustfmt::skip]
+        let expected = tokenize([
+            0,1,2,5,4,3,6,7,8,
+            9,0,1,4,3,2,5,6,7,
+            8,9,0,3,2,1,4,5,6,
+            7,8,9,2,1,0,3,4,5,
+            6,7,8,1,0,9,2,3,4,
+            5,6,7,0,9,8,1,2,3,
+            4,5,6,9,8,7,0,1,2,
+            3,4,5,8,7,6,9,0,1,
+            2,3,4,7,6,5,8,9,0,
+            ]);
+
+        super::swap_columns(&mut jig, 1, 1);
+        for i in 0..81 {
+            assert_eq!(jig[i], expected[i]);
+        }
     }
 
     #[test]
     fn swap_rows() {
+        #[rustfmt::skip]
+        let mut jig  = tokenize([
+            0,1,2,3,4,5,6,7,8,
+            9,0,1,2,3,4,5,6,7,
+            8,9,0,1,2,3,4,5,6,
+            7,8,9,0,1,2,3,4,5,
+            6,7,8,9,0,1,2,3,4,
+            5,6,7,8,9,0,1,2,3,
+            4,5,6,7,8,9,0,1,2,
+            3,4,5,6,7,8,9,0,1,
+            2,3,4,5,6,7,8,9,0,
+            ]);
+
+        #[rustfmt::skip]
+        let expected = tokenize([
+            0,1,2,3,4,5,6,7,8,
+            8,9,0,1,2,3,4,5,6,
+            9,0,1,2,3,4,5,6,7,
+            7,8,9,0,1,2,3,4,5,
+            6,7,8,9,0,1,2,3,4,
+            5,6,7,8,9,0,1,2,3,
+            4,5,6,7,8,9,0,1,2,
+            3,4,5,6,7,8,9,0,1,
+            2,3,4,5,6,7,8,9,0,
+            ]);
+
+        super::swap_rows(&mut jig, 0, 0);
+        for i in 0..81 {
+            assert_eq!(jig[i], expected[i]);
+        }
     }
 
     #[test]
     fn swap_column_cluster() {
+        #[rustfmt::skip]
+        let mut jig  = tokenize([
+            0,1,2,3,4,5,6,7,8,
+            9,0,1,2,3,4,5,6,7,
+            8,9,0,1,2,3,4,5,6,
+            7,8,9,0,1,2,3,4,5,
+            6,7,8,9,0,1,2,3,4,
+            5,6,7,8,9,0,1,2,3,
+            4,5,6,7,8,9,0,1,2,
+            3,4,5,6,7,8,9,0,1,
+            2,3,4,5,6,7,8,9,0,
+            ]);
+
+        #[rustfmt::skip]
+        let expected = tokenize([
+            6,7,8,3,4,5,0,1,2,
+            5,6,7,2,3,4,9,0,1,
+            4,5,6,1,2,3,8,9,0,
+            3,4,5,0,1,2,7,8,9,
+            2,3,4,9,0,1,6,7,8,
+            1,2,3,8,9,0,5,6,7,
+            0,1,2,7,8,9,4,5,6,
+            9,0,1,6,7,8,3,4,5,
+            8,9,0,5,6,7,2,3,4,
+            ]);
+
+        super::swap_column_cluster(&mut jig, 1);
+        for i in 0..81 {
+            assert_eq!(jig[i], expected[i]);
+        }
     }
 
     #[test]
     fn swap_row_cluster() {
+        #[rustfmt::skip]
+        let mut jig  = tokenize([
+            0,1,2,3,4,5,6,7,8,
+            9,0,1,2,3,4,5,6,7,
+            8,9,0,1,2,3,4,5,6,
+            7,8,9,0,1,2,3,4,5,
+            6,7,8,9,0,1,2,3,4,
+            5,6,7,8,9,0,1,2,3,
+            4,5,6,7,8,9,0,1,2,
+            3,4,5,6,7,8,9,0,1,
+            2,3,4,5,6,7,8,9,0,
+            ]);
+
+        #[rustfmt::skip]
+        let expected = tokenize([
+            0,1,2,3,4,5,6,7,8,
+            9,0,1,2,3,4,5,6,7,
+            8,9,0,1,2,3,4,5,6,
+            4,5,6,7,8,9,0,1,2,
+            3,4,5,6,7,8,9,0,1,
+            2,3,4,5,6,7,8,9,0,
+            7,8,9,0,1,2,3,4,5,
+            6,7,8,9,0,1,2,3,4,
+            5,6,7,8,9,0,1,2,3,
+            ]);
+
+        super::swap_row_cluster(&mut jig, 0);
+        for i in 0..81 {
+            assert_eq!(jig[i], expected[i]);
+        }
     }
 }
