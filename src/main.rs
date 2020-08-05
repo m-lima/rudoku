@@ -16,6 +16,6 @@ fn main() {
     //     });
 
     let board = game::Game::new_solved();
-    println!("{:?}", board);
-    println!("{}", board);
+    eprintln!("{}", board);
+    println!("[{:?}]", board);
 }

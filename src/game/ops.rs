@@ -40,14 +40,14 @@ pub fn generate_solved() -> Game {
 
     board[0..9].copy_from_slice(&random_token_sequence()[..]);
     let game = Game::from(board);
-    if let Some(solved) = solve(&game) {
+    if let Some(solved) = solve(&game, false) {
         solved
     } else {
         unreachable!();
     }
 }
 
-pub fn solve(game: &Game) -> Option<Game> {
+pub fn solve(game: &Game, maybe_parallel: bool) -> Option<Game> {
     let mut sequence = Vec::new();
 
     for cell in random_sequence().iter().map(Cell::from) {
@@ -56,7 +56,7 @@ pub fn solve(game: &Game) -> Option<Game> {
         }
     }
 
-    if sequence.len() > 40 {
+    if maybe_parallel && sequence.len() > 40 {
         solve_parallel(game, &sequence)
     } else {
         let mut game_copy = *game;
@@ -244,7 +244,7 @@ mod tests {
             game.set_internal(cell, Token::None);
         }
 
-        let solved = super::solve(&game);
+        let solved = super::solve(&game, false);
         assert!(solved.is_some());
 
         let solved = solved.unwrap();
@@ -278,7 +278,7 @@ mod benches {
         }
 
         bench.iter(|| {
-            assert!(super::solve(&game).is_some());
+            assert!(super::solve(&game, false).is_some());
         });
     }
 }

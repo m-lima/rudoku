@@ -38,19 +38,8 @@ impl Game {
         self.sectors[cell.sector()][cell.sector_index()] = token;
     }
 
-    // pub fn list_inconsistencies(&self) -> Vec<Cell> {
-    //     let mut inconsistencies = Vec::new();
-    //     for index in 0..81 {
-    //         let cell = Cell(index);
-    //         if !ops::consistent(&self, cell, ) {
-    //             inconsistencies.push(cell);
-    //         }
-    //     }
-    //     inconsistencies
-    // }
-
     pub fn solve(&self) -> Option<Self> {
-        ops::solve(&self)
+        ops::solve(&self, false)
     }
 }
 
