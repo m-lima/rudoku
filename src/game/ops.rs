@@ -1,45 +1,35 @@
 use super::{Cell, Game, Token};
-use crate::index::RowIndexer;
 
 pub fn consistent(game: &Game, cell: Cell, reference: Token) -> bool {
     if reference == Token::None {
         return true;
     }
 
-    for current in RowIndexer::new(cell.row()) {
-        if game.board[current.index()] == reference && current != cell {
+    let row = cell.row();
+    let col = cell.column();
+    let mut index = 0;
+    for token in game.board[row * 9..(row + 1) * 9].iter() {
+        if *token == reference && index != col {
             return false;
         }
+        index += 1;
     }
 
-    // for current in crate::index::ColumnIndexer::new(cell.column()) {
-    //     if game.board[current.index()] == reference && current != cell {
-    //         return false;
-    //     }
-    // }
-
-    {
-        let row = cell.row();
-        for (index, token) in game.columns[cell.column()].iter().enumerate() {
-            if *token == reference && index != row {
-                return false;
-            }
+    index = 0;
+    for token in &game.columns[col] {
+        if *token == reference && index != row {
+            return false;
         }
+        index += 1;
     }
 
-    // for current in crate::index::SectorIndexer::new(cell.sector()) {
-    //     if game.board[current.index()] == reference && current != cell {
-    //         return false;
-    //     }
-    // }
-
-    {
-        let sector_index = cell.sector_index();
-        for (index, token) in game.sectors[cell.sector()].iter().enumerate() {
-            if *token == reference && index != sector_index {
-                return false;
-            }
+    let sector_index = cell.sector_index();
+    index = 0;
+    for token in &game.sectors[cell.sector()] {
+        if *token == reference && index != sector_index {
+            return false;
         }
+        index += 1;
     }
 
     true
@@ -66,7 +56,16 @@ pub fn solve(game: &Game) -> Option<Game> {
         }
     }
 
-    solve_parallel(game, &sequence)
+    if sequence.len() > 40 {
+        solve_parallel(game, &sequence)
+    } else {
+        let mut game_copy = *game;
+        if solve_depth(&mut game_copy, &sequence, 0) {
+            Some(game_copy)
+        } else {
+            None
+        }
+    }
 }
 
 fn solve_parallel(game: &Game, sequence: &[Cell]) -> Option<Game> {
