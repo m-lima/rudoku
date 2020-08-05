@@ -43,23 +43,6 @@ pub fn consistent(board: &Board, cell: Cell) -> bool {
     true
 }
 
-pub fn solve(board: &Board) -> Option<Board> {
-    let mut board_copy = *board;
-    let mut sequence = Vec::new();
-
-    for cell in random_sequence().iter().map(Cell::from) {
-        if board[cell.index()] == Token::None {
-            sequence.push(cell);
-        }
-    }
-
-    if solve_depth(&mut board_copy, &sequence, 0) {
-        Some(board_copy)
-    } else {
-        None
-    }
-}
-
 pub fn generate_solved() -> Board {
     let mut board = [Token::None; 81];
 
@@ -71,13 +54,56 @@ pub fn generate_solved() -> Board {
     }
 }
 
+pub fn solve(board: &Board) -> Option<Board> {
+    let mut sequence = Vec::new();
+
+    for cell in random_sequence().iter().map(Cell::from) {
+        if board[cell.index()] == Token::None {
+            sequence.push(cell);
+        }
+    }
+
+    solve_parallel(board, &sequence)
+}
+
+fn solve_parallel(board: &Board, sequence: &[Cell]) -> Option<Board> {
+    if sequence.is_empty() {
+        return Some(*board);
+    }
+
+    crossbeam_utils::thread::scope(|s| {
+        let results = Token::list()
+            .iter()
+            .map(|token| {
+                s.spawn(move |_| {
+                    let mut thread_board = *board;
+                    thread_board[sequence[0].index()] = *token;
+                    if solve_depth(&mut thread_board, sequence, 1) {
+                        Some(thread_board)
+                    } else {
+                        None
+                    }
+                })
+            })
+            .collect::<Vec<_>>();
+
+        results
+            .into_iter()
+            .map(crossbeam::thread::ScopedJoinHandle::join)
+            .filter_map(Result::ok)
+            .flatten()
+            .next()
+    })
+    .expect("Failed to start thread scope for solving board")
+}
+
 fn solve_depth(board: &mut Board, sequence: &[Cell], depth: usize) -> bool {
     if depth == sequence.len() {
         return true;
     }
 
     let cell = sequence[depth];
-    for token in Token::iter() {
+    for token in Token::list() {
         board[cell.index()] = *token;
 
         if !consistent(board, cell) {
@@ -112,7 +138,7 @@ fn random_token_sequence() -> [Token; 9] {
 
     let mut rng = rand::thread_rng();
     let mut tokens = [Token::None; 9];
-    tokens[0..9].copy_from_slice(Token::iter());
+    tokens[0..9].copy_from_slice(Token::list());
     tokens.shuffle(&mut rng);
     tokens
 }

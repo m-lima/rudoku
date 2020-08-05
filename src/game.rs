@@ -114,7 +114,7 @@ impl Token {
     ];
 
     #[inline]
-    pub fn iter() -> &'static [Self] {
+    pub fn list() -> &'static [Self] {
         &Self::TOKENS[1..10]
     }
 }
