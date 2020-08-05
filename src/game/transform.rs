@@ -1,7 +1,7 @@
 use super::{Board, Token};
 use crate::index::{ColumnIndexer, RowIndexer};
 
-fn shift(board: &mut Board, amount: u8) {
+pub fn shift(board: &mut Board, amount: u8) {
     for token in board.iter_mut() {
         if token != &Token::None {
             *token = Token::from(((*token as u8 + amount - 1) % 9) + 1);
@@ -9,7 +9,7 @@ fn shift(board: &mut Board, amount: u8) {
     }
 }
 
-fn rotate(board: &mut Board) {
+pub fn rotate(board: &mut Board) {
     let other = *board;
     for i in 0..9 {
         let col = ColumnIndexer::new(i);
@@ -20,7 +20,7 @@ fn rotate(board: &mut Board) {
     }
 }
 
-fn mirror_columns(board: &mut Board) {
+pub fn mirror_columns(board: &mut Board) {
     let other = *board;
     for i in 0..9 {
         let first = ColumnIndexer::new(i);
@@ -31,7 +31,7 @@ fn mirror_columns(board: &mut Board) {
     }
 }
 
-fn mirror_rows(board: &mut Board) {
+pub fn mirror_rows(board: &mut Board) {
     let other = *board;
     for i in 0..9 {
         let first = RowIndexer::new(i);
@@ -42,10 +42,10 @@ fn mirror_rows(board: &mut Board) {
     }
 }
 
-fn swap_columns(board: &mut Board, cluster_column: usize, pivot: usize) {
+pub fn swap_columns(board: &mut Board, sector_column: usize, pivot: usize) {
     let other = *board;
-    let col1 = ((pivot + 1) % 3) + cluster_column * 3;
-    let col2 = ((pivot + 2) % 3) + cluster_column * 3;
+    let col1 = ((pivot + 1) % 3) + sector_column * 3;
+    let col2 = ((pivot + 2) % 3) + sector_column * 3;
 
     let first = ColumnIndexer::new(col1);
     let second = ColumnIndexer::new(col2);
@@ -55,16 +55,16 @@ fn swap_columns(board: &mut Board, cluster_column: usize, pivot: usize) {
     }
 }
 
-fn swap_rows(board: &mut Board, cluster_row: usize, pivot: usize) {
+pub fn swap_rows(board: &mut Board, sector_row: usize, pivot: usize) {
     let other = *board;
-    let row1 = (((pivot + 1) % 3) + cluster_row * 3) * 9;
-    let row2 = (((pivot + 2) % 3) + cluster_row * 3) * 9;
+    let row1 = (((pivot + 1) % 3) + sector_row * 3) * 9;
+    let row2 = (((pivot + 2) % 3) + sector_row * 3) * 9;
 
     board[row1..(9 + row1)].clone_from_slice(&other[row2..(9 + row2)]);
     board[row2..(9 + row2)].clone_from_slice(&other[row1..(9 + row1)]);
 }
 
-fn swap_column_cluster(board: &mut Board, pivot: usize) {
+pub fn swap_column_sector(board: &mut Board, pivot: usize) {
     let other = *board;
     let col1 = ((pivot + 1) % 3) * 3;
     let col2 = ((pivot + 2) % 3) * 3;
@@ -79,7 +79,7 @@ fn swap_column_cluster(board: &mut Board, pivot: usize) {
     }
 }
 
-fn swap_row_cluster(board: &mut Board, pivot: usize) {
+pub fn swap_row_sector(board: &mut Board, pivot: usize) {
     let other = *board;
     let row1 = (((pivot + 1) % 3) * 3) * 9;
     let row2 = (((pivot + 2) % 3) * 3) * 9;
@@ -90,15 +90,7 @@ fn swap_row_cluster(board: &mut Board, pivot: usize) {
 
 #[cfg(test)]
 mod tests {
-    use super::{Board, Token};
-
-    fn tokenize(board: [u8; 81]) -> Board {
-        let mut tokens = [Token::None; 81];
-        for i in 0..81 {
-            tokens[i] = Token::from(board[i]);
-        }
-        tokens
-    }
+    use super::super::tokenize;
 
     #[test]
     fn shift() {
@@ -305,7 +297,7 @@ mod tests {
     }
 
     #[test]
-    fn swap_column_cluster() {
+    fn swap_column_sector() {
         #[rustfmt::skip]
         let mut jig  = tokenize([
             0,1,2,3,4,5,6,7,8,
@@ -332,14 +324,14 @@ mod tests {
             8,9,0,5,6,7,2,3,4,
             ]);
 
-        super::swap_column_cluster(&mut jig, 1);
+        super::swap_column_sector(&mut jig, 1);
         for i in 0..81 {
             assert_eq!(jig[i], expected[i]);
         }
     }
 
     #[test]
-    fn swap_row_cluster() {
+    fn swap_row_sector() {
         #[rustfmt::skip]
         let mut jig  = tokenize([
             0,1,2,3,4,5,6,7,8,
@@ -366,7 +358,7 @@ mod tests {
             5,6,7,8,9,0,1,2,3,
             ]);
 
-        super::swap_row_cluster(&mut jig, 0);
+        super::swap_row_sector(&mut jig, 0);
         for i in 0..81 {
             assert_eq!(jig[i], expected[i]);
         }

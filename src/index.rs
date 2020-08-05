@@ -88,9 +88,32 @@ impl std::iter::Iterator for SectorIndexer {
     }
 }
 
+pub struct BoardIndexer {
+    index: usize,
+}
+
+impl BoardIndexer {
+    pub fn new() -> Self {
+        Self { index: 0 }
+    }
+}
+
+impl std::iter::Iterator for BoardIndexer {
+    type Item = Cell;
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.index < 81 {
+            let cell = Some(Cell::from(self.index));
+            self.index += 1;
+            cell
+        } else {
+            None
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{ColumnIndexer, RowIndexer, SectorIndexer};
+    use super::{BoardIndexer, ColumnIndexer, RowIndexer, SectorIndexer};
 
     #[test]
     fn row_low() {
@@ -215,6 +238,13 @@ mod tests {
         let iter = SectorIndexer::new(8);
         for (index, cell) in iter.enumerate() {
             assert_eq!(index, jig[cell.index()]);
+        }
+    }
+
+    #[test]
+    fn board() {
+        for (index, cell) in BoardIndexer::new().enumerate() {
+            assert_eq!(index, cell.index());
         }
     }
 }
