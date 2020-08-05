@@ -1,45 +1,77 @@
 mod ops;
 mod transform;
 
+use crate::index::{ColumnIndexer, SectorIndexer};
+
 type Board = [Token; 81];
 
 #[derive(Copy, Clone)]
-pub struct Game(Board);
+pub struct Game {
+    board: [Token; 81],
+    columns: [[Token; 9]; 9],
+    sectors: [[Token; 9]; 9],
+}
 
 impl Game {
     pub fn new_empty() -> Self {
-        Self([Token::None; 81])
+        Self::from([Token::None; 81])
     }
 
     pub fn new_solved() -> Self {
-        Self(ops::generate_solved())
+        ops::generate_solved()
     }
 
     #[inline]
     pub fn get(&self, cell: Cell) -> Token {
-        self.0[cell.index()]
+        self.board[cell.index()]
     }
 
-    #[inline]
     #[must_use]
     pub fn set(&mut self, cell: Cell, token: Token) -> bool {
-        self.0[cell.index()] = token;
-        ops::consistent(&self.0, cell)
+        self.set_internal(cell, token);
+        ops::consistent(&self, cell, token)
     }
 
-    pub fn list_inconsistencies(&self) -> Vec<Cell> {
-        let mut inconsistencies = Vec::new();
-        for index in 0..81 {
-            let cell = Cell(index);
-            if !ops::consistent(&self.0, cell) {
-                inconsistencies.push(cell);
-            }
-        }
-        inconsistencies
+    fn set_internal(&mut self, cell: Cell, token: Token) {
+        self.board[cell.index()] = token;
+        self.columns[cell.column()][cell.row()] = token;
+        self.sectors[cell.sector()][cell.sector_index()] = token;
     }
+
+    // pub fn list_inconsistencies(&self) -> Vec<Cell> {
+    //     let mut inconsistencies = Vec::new();
+    //     for index in 0..81 {
+    //         let cell = Cell(index);
+    //         if !ops::consistent(&self, cell, ) {
+    //             inconsistencies.push(cell);
+    //         }
+    //     }
+    //     inconsistencies
+    // }
 
     pub fn solve(&self) -> Option<Self> {
-        ops::solve(&self.0).map(Self)
+        ops::solve(&self)
+    }
+}
+
+impl std::convert::From<Board> for Game {
+    fn from(board: Board) -> Self {
+        let mut columns = [[Token::None; 9]; 9];
+        let mut sectors = [[Token::None; 9]; 9];
+
+        for i in 0..9 {
+            for (index, cell) in ColumnIndexer::new(i).enumerate() {
+                columns[i][index] = board[cell.index()];
+            }
+            for (index, cell) in SectorIndexer::new(i).enumerate() {
+                sectors[i][index] = board[cell.index()];
+            }
+        }
+        Self {
+            board,
+            columns,
+            sectors,
+        }
     }
 }
 
@@ -71,9 +103,9 @@ impl std::fmt::Display for Game {
 impl std::fmt::Debug for Game {
     fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         for i in 0..80 {
-            write!(fmt, "{:?},", self.0[i])?;
+            write!(fmt, "{:?},", self.board[i])?;
         }
-        write!(fmt, "{:?}", self.0[80])
+        write!(fmt, "{:?}", self.board[80])
     }
 }
 
@@ -170,6 +202,13 @@ impl Cell {
     }
 
     #[inline]
+    fn sector_index(self) -> usize {
+        let row = self.0 / 9;
+        let col = self.0 % 9;
+        (row % 3) * 3 + (col % 3)
+    }
+
+    #[inline]
     pub(super) fn index(self) -> usize {
         self.0
     }
@@ -206,7 +245,15 @@ impl std::convert::From<u8> for Cell {
 
 impl std::fmt::Debug for Cell {
     fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(fmt, "[row: {}, column: {}]", self.row(), self.column())
+        write!(
+            fmt,
+            "[raw: {}, row: {}, column: {}, sector: {}, sector_index: {}]",
+            self.0,
+            self.row(),
+            self.column(),
+            self.sector(),
+            self.sector_index()
+        )
     }
 }
 
@@ -221,8 +268,29 @@ fn tokenize(board: [u8; 81]) -> Board {
 
 #[cfg(test)]
 mod tests {
-    use super::{ops, transform};
-    use crate::index::BoardIndexer;
+    use super::{ops, transform, Game};
+    use crate::index::{BoardIndexer, ColumnIndexer, RowIndexer, SectorIndexer};
+
+    #[test]
+    fn game_from_array() {
+        #[rustfmt::skip]
+        let reference = ops::consistent_board();
+        let game = Game::from(reference);
+
+        for i in 0..9 {
+            for cell in RowIndexer::new(i) {
+                assert_eq!(game.get(cell), reference[cell.index()]);
+            }
+
+            for (index, cell) in ColumnIndexer::new(i).enumerate() {
+                assert_eq!(game.columns[i][index], reference[cell.index()]);
+            }
+
+            for (index, cell) in SectorIndexer::new(i).enumerate() {
+                assert_eq!(game.sectors[i][index], reference[cell.index()]);
+            }
+        }
+    }
 
     #[test]
     fn cell_sector() {
@@ -245,23 +313,43 @@ mod tests {
     }
 
     #[test]
+    fn cell_sector_index() {
+        #[rustfmt::skip]
+        let jig: [usize; 81] = [
+            0,1,2,0,1,2,0,1,2,
+            3,4,5,3,4,5,3,4,5,
+            6,7,8,6,7,8,6,7,8,
+            0,1,2,0,1,2,0,1,2,
+            3,4,5,3,4,5,3,4,5,
+            6,7,8,6,7,8,6,7,8,
+            0,1,2,0,1,2,0,1,2,
+            3,4,5,3,4,5,3,4,5,
+            6,7,8,6,7,8,6,7,8,
+        ];
+
+        for cell in BoardIndexer::new() {
+            assert_eq!(cell.sector_index(), jig[cell.index()]);
+        }
+    }
+
+    #[test]
     fn transform_consistency() {
         let mut board = ops::consistent_board();
         transform::shift(&mut board, 2);
-        ops::assert_consistent(&board);
+        ops::assert_consistent(&board.into());
         transform::rotate(&mut board);
-        ops::assert_consistent(&board);
+        ops::assert_consistent(&board.into());
         transform::mirror_columns(&mut board);
-        ops::assert_consistent(&board);
+        ops::assert_consistent(&board.into());
         transform::mirror_rows(&mut board);
-        ops::assert_consistent(&board);
+        ops::assert_consistent(&board.into());
         transform::swap_columns(&mut board, 1, 1);
-        ops::assert_consistent(&board);
+        ops::assert_consistent(&board.into());
         transform::swap_rows(&mut board, 1, 1);
-        ops::assert_consistent(&board);
+        ops::assert_consistent(&board.into());
         transform::swap_column_sector(&mut board, 1);
-        ops::assert_consistent(&board);
+        ops::assert_consistent(&board.into());
         transform::swap_row_sector(&mut board, 1);
-        ops::assert_consistent(&board);
+        ops::assert_consistent(&board.into());
     }
 }
