@@ -41,6 +41,68 @@ pub fn consistent(board: &Board, cell: Cell) -> bool {
     true
 }
 
+pub fn solve(board: &Board) -> Option<Board> {
+    let mut board_copy = *board;
+    let mut sequence = Vec::new();
+
+    for cell in random_sequence().iter().map(Cell::from) {
+        if board[cell.index()] == Token::None {
+            sequence.push(cell);
+        }
+    }
+
+    if solve_depth(&mut board_copy, &sequence, 0) {
+        Some(board_copy)
+    } else {
+        None
+    }
+}
+
+fn solve_depth(board: &mut Board, sequence: &[Cell], depth: usize) -> bool {
+    if depth == sequence.len() {
+        return true;
+    }
+
+    let cell = sequence[depth];
+    for token in Token::iter() {
+        board[cell.index()] = *token;
+
+        if !consistent(board, cell) {
+            continue;
+        }
+
+        if solve_depth(board, sequence, depth + 1) {
+            return true;
+        }
+    }
+
+    board[cell.index()] = Token::None;
+    false
+}
+
+fn random_sequence() -> [u8; 81] {
+    use rand::seq::SliceRandom;
+
+    let mut rng = rand::thread_rng();
+    let mut indices = [
+        0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24,
+        25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47,
+        48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70,
+        71, 72, 73, 74, 75, 76, 77, 78, 79, 80,
+    ];
+    indices.shuffle(&mut rng);
+    indices
+}
+
+fn random_sequence_small() -> [u8; 9] {
+    use rand::seq::SliceRandom;
+
+    let mut rng = rand::thread_rng();
+    let mut indices = [0, 1, 2, 3, 4, 5, 6, 7, 8];
+    indices.shuffle(&mut rng);
+    indices
+}
+
 #[cfg(test)]
 pub fn consistent_board() -> Board {
     #[rustfmt::skip]
@@ -61,14 +123,14 @@ pub fn consistent_board() -> Board {
 #[cfg(test)]
 mod tests {
     use super::super::tokenize;
-    use super::Cell;
+    use super::{Cell, Token};
     use crate::index::BoardIndexer;
 
     #[test]
     fn full_consistency() {
-        let jig = super::consistent_board();
+        let board = super::consistent_board();
         for cell in BoardIndexer::new() {
-            assert!(super::consistent(&jig, cell));
+            assert!(super::consistent(&board, cell));
         }
     }
 
@@ -124,5 +186,22 @@ mod tests {
         ]);
 
         assert!(!super::consistent(&jig, Cell::new(4, 4)));
+    }
+
+    #[test]
+    fn solve() {
+        let mut board = super::consistent_board();
+        for cell in super::random_sequence().iter().take(10).map(Cell::from) {
+            board[cell.index()] = Token::None;
+        }
+
+        let solved = super::solve(&board);
+        assert!(solved.is_some());
+
+        let solved = solved.unwrap();
+        for cell in BoardIndexer::new() {
+            assert_ne!(solved[cell.index()], Token::None);
+            assert!(super::consistent(&board, cell));
+        }
     }
 }
