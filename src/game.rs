@@ -218,8 +218,17 @@ mod test {
 }
 
 mod transform {
-    use super::Board;
+    use super::{Board, Token};
     use crate::index::{ColumnIndexer, RowIndexer};
+
+    fn shift(board: &mut Board, amount: u8) {
+        for i in 0..81 {
+            let token = board[i];
+            if token != Token::None {
+                board[i] = Token::from(token as u8 + amount % 10)
+            }
+        }
+    }
 
     fn rotate(board: &mut Board) {
         let other = *board;
@@ -232,78 +241,78 @@ mod transform {
         }
     }
 
-    // fn mirror_columns(&mut self) {
-    //     let other = self.0;
-    //     for i in 0..9 {
-    //         for (index, token) in other.column(i).enumerate() {
-    //             self.0[index * 9 + (8 - usize::from(i))] = token;
-    //         }
-    //     }
-    // }
+    fn mirror_columns(board: &mut Board) {
+        let other = *board;
+        for i in 0..9 {
+            let first = ColumnIndexer::new(i);
+            let second = ColumnIndexer::new(8 - i);
+            for (first, second) in first.zip(second) {
+                board[first.index()] = other[second.index()];
+            }
+        }
+    }
 
-    // fn mirror_rows(&mut self) {
-    //     let other = self.0;
-    //     for i in 0..9 {
-    //         for (index, token) in other.row(i).enumerate() {
-    //             self.0[(8 - usize::from(i)) * 9 + index] = token;
-    //         }
-    //     }
-    // }
+    fn mirror_rows(board: &mut Board) {
+        let other = *board;
+        for i in 0..9 {
+            let first = RowIndexer::new(i);
+            let second = RowIndexer::new(8 - i);
+            for (first, second) in first.zip(second) {
+                board[first.index()] = other[second.index()];
+            }
+        }
+    }
 
-    // fn swap_columns(&mut self, cluster_column: u8, pivot: u8) {
-    //     let other = self.0;
-    //     let col1 = usize::from(((pivot + 1) % 3) + cluster_column * 3);
-    //     let col2 = usize::from(((pivot + 2) % 3) + cluster_column * 3);
+    fn swap_columns(board: &mut Board, cluster_column: usize, pivot: usize) {
+        let other = *board;
+        let col1 = ((pivot + 1) % 3) + cluster_column * 3;
+        let col2 = ((pivot + 2) % 3) + cluster_column * 3;
 
-    //     for row in 0..9 {
-    //         let row_ref = row * 9;
-    //         self.0[row_ref + col1] = other[row_ref + col2];
-    //         self.0[row_ref + col2] = other[row_ref + col1];
-    //     }
-    // }
+        let first = ColumnIndexer::new(col1);
+        let second = ColumnIndexer::new(col2);
+        for (first, second) in first.zip(second) {
+            board[first.index()] = other[second.index()];
+            board[second.index()] = other[first.index()];
+        }
+    }
 
-    // fn swap_rows(&mut self, cluster_row: u8, pivot: u8) {
-    //     let other = self.0;
-    //     let row1 = usize::from(((pivot + 1) % 3) + cluster_row * 3) * 9;
-    //     let row2 = usize::from(((pivot + 2) % 3) + cluster_row * 3) * 9;
+    fn swap_rows(board: &mut Board, cluster_row: usize, pivot: usize) {
+        let other = *board;
+        let row1 = (((pivot + 1) % 3) + cluster_row * 3) * 9;
+        let row2 = (((pivot + 2) % 3) + cluster_row * 3) * 9;
 
-    //     self.0[row1..(9 + row1)].clone_from_slice(&other[row2..(9 + row2)]);
-    //     self.0[row2..(9 + row2)].clone_from_slice(&other[row1..(9 + row1)]);
-    // }
+        board[row1..(9 + row1)].clone_from_slice(&other[row2..(9 + row2)]);
+        board[row2..(9 + row2)].clone_from_slice(&other[row1..(9 + row1)]);
+    }
 
-    // fn swap_column_cluster(&mut self, pivot: u8) {
-    //     let other = self.0;
-    //     let col1 = usize::from(((pivot + 1) % 3) * 3);
-    //     let col2 = usize::from(((pivot + 1) % 3) * 3);
+    fn swap_column_cluster(board: &mut Board, pivot: usize) {
+        let other = *board;
+        let col1 = ((pivot + 1) % 3) * 3;
+        let col2 = ((pivot + 1) % 3) * 3;
 
-    //     for row in 0..9 {
-    //         let row_ref = row * 9;
-    //         self.0[row_ref + col1] = other[row_ref + col2];
-    //         self.0[row_ref + col1 + 1] = other[row_ref + col2 + 1];
-    //         self.0[row_ref + col1 + 2] = other[row_ref + col2 + 2];
+        let first = ColumnIndexer::new(col1);
+        let second = ColumnIndexer::new(col2);
+        for (first, second) in first.zip(second) {
+            board[first.index()] = other[second.index()];
+            board[first.index() + 1] = other[second.index() + 1];
+            board[first.index() + 1] = other[second.index() + 2];
 
-    //         self.0[row_ref + col2] = other[row_ref + col1];
-    //         self.0[row_ref + col2 + 1] = other[row_ref + col1 + 1];
-    //         self.0[row_ref + col2 + 2] = other[row_ref + col1 + 2];
-    //     }
-    // }
+            board[second.index()] = other[first.index()];
+            board[second.index() + 1] = other[first.index() + 1];
+            board[second.index() + 2] = other[first.index() + 2];
+        }
+    }
 
-    // fn swap_row_cluster(&mut self, pivot: u8) {
-    //     let other = self.0;
-    //     let row1 = usize::from(((pivot + 1) % 3) * 3) * 9;
-    //     let row2 = usize::from(((pivot + 1) % 3) * 3) * 9;
+    fn swap_row_cluster(board: &mut Board, pivot: usize) {
+        let other = *board;
+        let row1 = (((pivot + 1) % 3) * 3) * 9;
+        let row2 = (((pivot + 1) % 3) * 3) * 9;
 
-    //     self.0[row1..(9 + row1)].clone_from_slice(&other[row2..(9 + row2)]);
-    //     self.0[row1..(9 + row1)].clone_from_slice(&other[row2..(9 + row2)]);
-    //     self.0[row1..(9 + row1)].clone_from_slice(&other[row2..(9 + row2)]);
-    //     self.0[row2..(9 + row2)].clone_from_slice(&other[row1..(9 + row1)]);
-    //     self.0[row2..(9 + row2)].clone_from_slice(&other[row1..(9 + row1)]);
-    //     self.0[row2..(9 + row2)].clone_from_slice(&other[row1..(9 + row1)]);
-    // }
-
-    // fn shift(&mut self, amount: u8) {
-    //     for token in self.0.iter_mut() {
-    //         *token = ((*token + amount) % 9) + 1;
-    //     }
-    // }
+        board[row1..(9 + row1)].clone_from_slice(&other[row2..(9 + row2)]);
+        board[row1..(9 + row1)].clone_from_slice(&other[row2..(9 + row2)]);
+        board[row1..(9 + row1)].clone_from_slice(&other[row2..(9 + row2)]);
+        board[row2..(9 + row2)].clone_from_slice(&other[row1..(9 + row1)]);
+        board[row2..(9 + row2)].clone_from_slice(&other[row1..(9 + row1)]);
+        board[row2..(9 + row2)].clone_from_slice(&other[row1..(9 + row1)]);
+    }
 }
