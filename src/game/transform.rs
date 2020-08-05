@@ -60,8 +60,8 @@ pub fn swap_rows(board: &mut Board, sector_row: usize, pivot: usize) {
     let row1 = (((pivot + 1) % 3) + sector_row * 3) * 9;
     let row2 = (((pivot + 2) % 3) + sector_row * 3) * 9;
 
-    board[row1..(9 + row1)].clone_from_slice(&other[row2..(9 + row2)]);
-    board[row2..(9 + row2)].clone_from_slice(&other[row1..(9 + row1)]);
+    board[row1..(9 + row1)].copy_from_slice(&other[row2..(9 + row2)]);
+    board[row2..(9 + row2)].copy_from_slice(&other[row1..(9 + row1)]);
 }
 
 pub fn swap_column_sector(board: &mut Board, pivot: usize) {
@@ -74,8 +74,8 @@ pub fn swap_column_sector(board: &mut Board, pivot: usize) {
     for (first, second) in first.zip(second) {
         let first = first.index();
         let second = second.index();
-        board[first..(3 + first)].clone_from_slice(&other[second..(3 + second)]);
-        board[second..(3 + second)].clone_from_slice(&other[first..(3 + first)]);
+        board[first..(3 + first)].copy_from_slice(&other[second..(3 + second)]);
+        board[second..(3 + second)].copy_from_slice(&other[first..(3 + first)]);
     }
 }
 
@@ -84,8 +84,8 @@ pub fn swap_row_sector(board: &mut Board, pivot: usize) {
     let row1 = (((pivot + 1) % 3) * 3) * 9;
     let row2 = (((pivot + 2) % 3) * 3) * 9;
 
-    board[row1..(27 + row1)].clone_from_slice(&other[row2..(27 + row2)]);
-    board[row2..(27 + row2)].clone_from_slice(&other[row1..(27 + row1)]);
+    board[row1..(27 + row1)].copy_from_slice(&other[row2..(27 + row2)]);
+    board[row2..(27 + row2)].copy_from_slice(&other[row1..(27 + row1)]);
 }
 
 #[cfg(test)]

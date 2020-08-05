@@ -4,32 +4,42 @@ mod transform;
 type Board = [Token; 81];
 
 #[derive(Copy, Clone)]
-pub struct Game {
-    board: Board,
-}
+pub struct Game(Board);
 
 impl Game {
+    pub fn new_empty() -> Self {
+        Self([Token::None; 81])
+    }
+
+    pub fn new_solved() -> Self {
+        Self(ops::generate_solved())
+    }
+
     #[inline]
     pub fn get(&self, cell: Cell) -> Token {
-        self.board[cell.index()]
+        self.0[cell.index()]
     }
 
     #[inline]
     #[must_use]
     pub fn set(&mut self, cell: Cell, token: Token) -> bool {
-        self.board[cell.index()] = token;
-        ops::consistent(&self.board, cell)
+        self.0[cell.index()] = token;
+        ops::consistent(&self.0, cell)
     }
 
     pub fn list_inconsistencies(&self) -> Vec<Cell> {
         let mut inconsistencies = Vec::new();
         for index in 0..81 {
             let cell = Cell(index);
-            if !ops::consistent(&self.board, cell) {
+            if !ops::consistent(&self.0, cell) {
                 inconsistencies.push(cell);
             }
         }
         inconsistencies
+    }
+
+    pub fn solve(&self) -> Option<Self> {
+        ops::solve(&self.0).map(Self)
     }
 }
 
@@ -61,9 +71,9 @@ impl std::fmt::Display for Game {
 impl std::fmt::Debug for Game {
     fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         for i in 0..80 {
-            write!(fmt, "{},", self.board[i])?;
+            write!(fmt, "{:?},", self.0[i])?;
         }
-        write!(fmt, "{}", self.board[80])
+        write!(fmt, "{:?}", self.0[80])
     }
 }
 
@@ -75,7 +85,7 @@ pub enum Difficulty {
 }
 
 #[repr(u8)]
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
 pub enum Token {
     None = 0,
     One = 1,
@@ -128,6 +138,12 @@ impl std::fmt::Display for Token {
         } else {
             write!(fmt, "{}", *self as u8)
         }
+    }
+}
+
+impl std::fmt::Debug for Token {
+    fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(fmt, "{}", *self as u8)
     }
 }
 

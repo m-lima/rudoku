@@ -14,7 +14,8 @@ fn main() {
     //         1 => game::Difficulty::Easy,
     //         _ => game::Difficulty::Hard,
     //     });
-    // let game = game::Game::new(difficulty);
-    // println!("{}", game.board());
-    // println!("{:?}", game.board());
+
+    let board = game::Game::new_solved();
+    println!("{:?}", board);
+    println!("{}", board);
 }

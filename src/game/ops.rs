@@ -1,6 +1,8 @@
 use super::{Board, Cell, Token};
 use crate::index::{ColumnIndexer, RowIndexer, SectorIndexer};
 
+// TODO replace [Token; 81] with `Game`
+
 pub fn consistent(board: &Board, cell: Cell) -> bool {
     let reference = board[cell.index()];
 
@@ -58,6 +60,17 @@ pub fn solve(board: &Board) -> Option<Board> {
     }
 }
 
+pub fn generate_solved() -> Board {
+    let mut board = [Token::None; 81];
+
+    board[0..9].copy_from_slice(&random_token_sequence()[..]);
+    if let Some(solved) = solve(&board) {
+        solved
+    } else {
+        unreachable!();
+    }
+}
+
 fn solve_depth(board: &mut Board, sequence: &[Cell], depth: usize) -> bool {
     if depth == sequence.len() {
         return true;
@@ -94,13 +107,14 @@ fn random_sequence() -> [u8; 81] {
     indices
 }
 
-fn random_sequence_small() -> [u8; 9] {
+fn random_token_sequence() -> [Token; 9] {
     use rand::seq::SliceRandom;
 
     let mut rng = rand::thread_rng();
-    let mut indices = [0, 1, 2, 3, 4, 5, 6, 7, 8];
-    indices.shuffle(&mut rng);
-    indices
+    let mut tokens = [Token::None; 9];
+    tokens[0..9].copy_from_slice(Token::iter());
+    tokens.shuffle(&mut rng);
+    tokens
 }
 
 #[cfg(test)]
