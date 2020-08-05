@@ -121,6 +121,13 @@ pub fn consistent_board() -> Board {
 }
 
 #[cfg(test)]
+pub fn assert_consistent(board: &Board) {
+    for cell in crate::index::BoardIndexer::new() {
+        assert!(consistent(board, cell));
+    }
+}
+
+#[cfg(test)]
 mod tests {
     use super::super::tokenize;
     use super::{Cell, Token};
@@ -129,9 +136,7 @@ mod tests {
     #[test]
     fn full_consistency() {
         let board = super::consistent_board();
-        for cell in BoardIndexer::new() {
-            assert!(super::consistent(&board, cell));
-        }
+        super::assert_consistent(&board);
     }
 
     #[test]
@@ -203,5 +208,31 @@ mod tests {
             assert_ne!(solved[cell.index()], Token::None);
             assert!(super::consistent(&board, cell));
         }
+    }
+}
+
+#[cfg(all(test, nightly))]
+mod benches {
+    extern crate test;
+
+    use super::{Cell, Token};
+    use crate::index::BoardIndexer;
+
+    #[bench]
+    fn consistent(bench: &mut Bencher) {
+        let board = super::consistent_board();
+        bench.iter(|| {
+            super::assert_consistent(&board);
+        });
+    }
+
+    #[bench]
+    fn solve(bench: &mut Bencher) {
+        let mut board = super::consistent_board();
+        for cell in super::random_sequence().iter().take(10).map(Cell::from) {
+            board[cell.index()] = Token::None;
+        }
+
+        assert!(super::solve(&board).is_some());
     }
 }

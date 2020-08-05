@@ -205,15 +205,8 @@ fn tokenize(board: [u8; 81]) -> Board {
 
 #[cfg(test)]
 mod tests {
-    use super::Board;
     use super::{ops, transform};
     use crate::index::BoardIndexer;
-
-    fn consistent(board: &Board) {
-        for cell in BoardIndexer::new() {
-            assert!(ops::consistent(board, cell));
-        }
-    }
 
     #[test]
     fn cell_sector() {
@@ -239,20 +232,20 @@ mod tests {
     fn transform_consistency() {
         let mut board = ops::consistent_board();
         transform::shift(&mut board, 2);
-        consistent(&board);
+        ops::assert_consistent(&board);
         transform::rotate(&mut board);
-        consistent(&board);
+        ops::assert_consistent(&board);
         transform::mirror_columns(&mut board);
-        consistent(&board);
+        ops::assert_consistent(&board);
         transform::mirror_rows(&mut board);
-        consistent(&board);
+        ops::assert_consistent(&board);
         transform::swap_columns(&mut board, 1, 1);
-        consistent(&board);
+        ops::assert_consistent(&board);
         transform::swap_rows(&mut board, 1, 1);
-        consistent(&board);
+        ops::assert_consistent(&board);
         transform::swap_column_sector(&mut board, 1);
-        consistent(&board);
+        ops::assert_consistent(&board);
         transform::swap_row_sector(&mut board, 1);
-        consistent(&board);
+        ops::assert_consistent(&board);
     }
 }
