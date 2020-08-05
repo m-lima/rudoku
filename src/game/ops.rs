@@ -216,7 +216,7 @@ mod benches {
     extern crate test;
 
     use super::{Cell, Token};
-    use crate::index::BoardIndexer;
+    use test::Bencher;
 
     #[bench]
     fn consistent(bench: &mut Bencher) {
@@ -229,10 +229,12 @@ mod benches {
     #[bench]
     fn solve(bench: &mut Bencher) {
         let mut board = super::consistent_board();
-        for cell in super::random_sequence().iter().take(10).map(Cell::from) {
+        for cell in super::random_sequence().iter().take(30).map(Cell::from) {
             board[cell.index()] = Token::None;
         }
 
-        assert!(super::solve(&board).is_some());
+        bench.iter(|| {
+            assert!(super::solve(&board).is_some());
+        });
     }
 }
