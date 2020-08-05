@@ -15,22 +15,22 @@ impl Game {
     }
 
     #[inline]
+    #[must_use]
     pub fn set(&mut self, cell: Cell, token: Token) -> bool {
         self.board[cell.index()] = token;
-        true
-        // ops::consistent(self.board, cell)
+        ops::consistent(&self.board, cell)
     }
 
-    // pub fn list_inconsistencies(&self) -> Vec<Cell> {
-    //     let mut inconsistencies = Vec::new();
-    //     for index in 0..81 {
-    //         let cell = Cell(index);
-    //         if !ops::consistent(&self.board, cell) {
-    //             inconsistencies.push(cell);
-    //         }
-    //     }
-    //     inconsistencies
-    // }
+    pub fn list_inconsistencies(&self) -> Vec<Cell> {
+        let mut inconsistencies = Vec::new();
+        for index in 0..81 {
+            let cell = Cell(index);
+            if !ops::consistent(&self.board, cell) {
+                inconsistencies.push(cell);
+            }
+        }
+        inconsistencies
+    }
 }
 
 impl std::fmt::Display for Game {
