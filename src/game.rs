@@ -41,6 +41,14 @@ impl Game {
     pub fn solve(&self) -> Option<Self> {
         ops::solve(&self, false)
     }
+
+    pub fn prune_per_gaps(&self, max_difficulty: Difficulty) -> [Option<Game>; 3] {
+        ops::prune_per_gaps(self, max_difficulty)
+    }
+
+    pub fn prune_per_time(&self, max_difficulty: Difficulty) -> [Option<Game>; 3] {
+        ops::prune_per_duration(self, max_difficulty)
+    }
 }
 
 impl std::convert::From<Board> for Game {
@@ -98,11 +106,30 @@ impl std::fmt::Debug for Game {
     }
 }
 
+#[repr(u8)]
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
 pub enum Difficulty {
     Easy,
     Medium,
     Hard,
+}
+
+impl Difficulty {
+    fn to_gaps(self) -> usize {
+        match self {
+            Difficulty::Easy => 40,
+            Difficulty::Medium => 50,
+            Difficulty::Hard => 60,
+        }
+    }
+
+    fn to_duration(self) -> std::time::Duration {
+        std::time::Duration::from_secs(match self {
+            Difficulty::Easy => 1,
+            Difficulty::Medium => 30,
+            Difficulty::Hard => 60,
+        })
+    }
 }
 
 #[repr(u8)]
