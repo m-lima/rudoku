@@ -2,9 +2,14 @@ use super::{Board, Token};
 use crate::index::{ColumnIndexer, RowIndexer};
 
 pub fn shift(board: &mut Board, amount: u8) {
+    if amount == 0 {
+        return;
+    }
+
+    let effective_amount = (amount - 1) % 8;
     for token in board.iter_mut() {
         if token != &Token::None {
-            *token = Token::from(((*token as u8 + amount - 1) % 9) + 1);
+            *token = Token::from(((*token as u8 + effective_amount) % 9) + 1);
         }
     }
 }
@@ -44,8 +49,8 @@ pub fn mirror_rows(board: &mut Board) {
 
 pub fn swap_columns(board: &mut Board, sector_column: usize, pivot: usize) {
     let other = *board;
-    let col1 = ((pivot + 1) % 3) + sector_column * 3;
-    let col2 = ((pivot + 2) % 3) + sector_column * 3;
+    let col1 = ((pivot + 1) % 3) + (sector_column % 3) * 3;
+    let col2 = ((pivot + 2) % 3) + (sector_column % 3) * 3;
 
     let first = ColumnIndexer::new(col1);
     let second = ColumnIndexer::new(col2);
@@ -57,8 +62,8 @@ pub fn swap_columns(board: &mut Board, sector_column: usize, pivot: usize) {
 
 pub fn swap_rows(board: &mut Board, sector_row: usize, pivot: usize) {
     let other = *board;
-    let row1 = (((pivot + 1) % 3) + sector_row * 3) * 9;
-    let row2 = (((pivot + 2) % 3) + sector_row * 3) * 9;
+    let row1 = (((pivot + 1) % 3) + (sector_row % 3) * 3) * 9;
+    let row2 = (((pivot + 2) % 3) + (sector_row % 3) * 3) * 9;
 
     board[row1..(9 + row1)].copy_from_slice(&other[row2..(9 + row2)]);
     board[row2..(9 + row2)].copy_from_slice(&other[row1..(9 + row1)]);

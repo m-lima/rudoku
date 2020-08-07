@@ -39,7 +39,30 @@ impl Game {
     }
 
     pub fn solve(&self) -> Option<Self> {
-        ops::solve(&self, false)
+        ops::solve(&self, false, true)
+    }
+
+    pub fn shuffle(self, seed: u64) -> Self {
+        use rand::{Rng, SeedableRng};
+
+        let mut board = self.board;
+        let mut rng = rand::rngs::StdRng::seed_from_u64(seed);
+
+        for _ in 0..128 {
+            match rng.gen::<u8>() % 8 {
+                0 => transform::shift(&mut board, rng.gen::<u8>()),
+                1 => transform::rotate(&mut board),
+                2 => transform::mirror_columns(&mut board),
+                3 => transform::mirror_rows(&mut board),
+                4 => transform::swap_columns(&mut board, rng.gen::<usize>(), rng.gen::<usize>()),
+                5 => transform::swap_rows(&mut board, rng.gen::<usize>(), rng.gen::<usize>()),
+                6 => transform::swap_column_sector(&mut board, rng.gen::<usize>()),
+                7 => transform::swap_row_sector(&mut board, rng.gen::<usize>()),
+                _ => unreachable!(),
+            }
+        }
+
+        Game::from(board)
     }
 
     pub fn prune_per_gaps(&self, max_difficulty: Difficulty) -> [Option<Game>; 3] {
@@ -69,6 +92,12 @@ impl std::convert::From<Board> for Game {
             columns,
             sectors,
         }
+    }
+}
+
+impl std::convert::From<[u8; 81]> for Game {
+    fn from(board: [u8; 81]) -> Self {
+        Self::from(tokenize(board))
     }
 }
 
@@ -273,19 +302,20 @@ impl std::fmt::Debug for Cell {
     }
 }
 
-#[cfg(test)]
 fn tokenize(board: [u8; 81]) -> Board {
-    let mut tokens = [Token::None; 81];
-    for i in 0..81 {
-        tokens[i] = Token::from(board[i]);
-    }
-    tokens
+    unsafe { std::mem::transmute::<[u8; 81], [Token; 81]>(board) }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{ops, transform, Game};
+    use super::{ops, transform, Board, Game, Token};
     use crate::index::{BoardIndexer, ColumnIndexer, RowIndexer, SectorIndexer};
+
+    fn assert_no_empty(board: &Board) {
+        for cell in BoardIndexer::new() {
+            assert_ne!(board[cell.index()], Token::None);
+        }
+    }
 
     #[test]
     fn game_from_array() {
@@ -353,19 +383,53 @@ mod tests {
         let mut board = ops::consistent_board();
         transform::shift(&mut board, 2);
         ops::assert_consistent(&board.into());
+        assert_no_empty(&board);
+
         transform::rotate(&mut board);
         ops::assert_consistent(&board.into());
+        assert_no_empty(&board);
+
         transform::mirror_columns(&mut board);
         ops::assert_consistent(&board.into());
+        assert_no_empty(&board);
+
         transform::mirror_rows(&mut board);
         ops::assert_consistent(&board.into());
+        assert_no_empty(&board);
+
         transform::swap_columns(&mut board, 1, 1);
         ops::assert_consistent(&board.into());
+        assert_no_empty(&board);
+
         transform::swap_rows(&mut board, 1, 1);
         ops::assert_consistent(&board.into());
+        assert_no_empty(&board);
+
         transform::swap_column_sector(&mut board, 1);
         ops::assert_consistent(&board.into());
+        assert_no_empty(&board);
+
         transform::swap_row_sector(&mut board, 1);
         ops::assert_consistent(&board.into());
+        assert_no_empty(&board);
+    }
+
+    #[test]
+    fn shuffle() {
+        let game = Game::from(ops::consistent_board());
+        game.shuffle(12345);
+        ops::assert_consistent(&game);
+        assert_no_empty(&game.board);
+    }
+
+    #[test]
+    fn consistent_values() {
+        use rand::{Rng, SeedableRng};
+        let mut rng = rand::rngs::StdRng::seed_from_u64(12345);
+
+        assert_eq!(rng.gen::<u8>(), 124);
+        assert_eq!(rng.gen::<u8>(), 53);
+        assert_eq!(rng.gen::<u8>(), 124);
+        assert_eq!(rng.gen::<u8>(), 27);
     }
 }

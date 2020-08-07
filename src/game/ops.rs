@@ -40,7 +40,7 @@ pub fn generate_solved() -> Game {
 
     board[0..9].copy_from_slice(&random_token_sequence()[..]);
     let game = Game::from(board);
-    if let Some(solved) = solve(&game, false) {
+    if let Some(solved) = solve(&game, false, true) {
         solved
     } else {
         unreachable!();
@@ -53,17 +53,10 @@ pub fn prune_per_gaps(game: &Game, max_difficulty: Difficulty) -> [Option<Game>;
     let sequence = random_filled_sequence(game);
     let mut removed = 81 - sequence.len();
 
-    let mut start_time = std::time::Instant::now();
     for cell in sequence {
         if can_remove(current_game, cell) {
             current_game.set_internal(cell, Token::None);
             removed += 1;
-            eprintln!(
-                "Removed: {}, Last: {}s",
-                removed,
-                start_time.elapsed().as_secs_f64()
-            );
-            start_time = std::time::Instant::now();
 
             if removed == Difficulty::Easy.to_gaps() {
                 pruned[0] = Some(current_game);
@@ -127,10 +120,8 @@ pub fn prune_per_duration(game: &Game, max_difficulty: Difficulty) -> [Option<Ga
         if changed {
             pruned[1] = Some(current_game);
         }
-    } else {
-        if changed {
-            pruned[0] = Some(current_game);
-        }
+    } else if changed {
+        pruned[0] = Some(current_game);
     }
 
     pruned
@@ -142,7 +133,7 @@ fn can_remove(mut game: Game, cell: Cell) -> bool {
     for token in Token::list() {
         if *token != original && consistent(&game, cell, *token) {
             game.set_internal(cell, *token);
-            if solve(&game, true).is_some() {
+            if solve(&game, true, false).is_some() {
                 return false;
             }
         }
@@ -151,10 +142,15 @@ fn can_remove(mut game: Game, cell: Cell) -> bool {
     true
 }
 
-pub fn solve(game: &Game, maybe_parallel: bool) -> Option<Game> {
-    let sequence = random_empty_sequence(game);
+pub fn solve(game: &Game, maybe_parallel: bool, full_solution: bool) -> Option<Game> {
+    let sequnce_base = random_empty_sequence(game);
+    let sequence = if full_solution {
+        &sequnce_base[..]
+    } else {
+        &sequnce_base[0..sequnce_base.len() - 3]
+    };
 
-    if maybe_parallel && sequence.len() > 40 {
+    if maybe_parallel && sequence.len() > 43 {
         solve_parallel(game, &sequence)
     } else {
         let mut game_copy = *game;
@@ -199,7 +195,7 @@ fn solve_parallel(game: &Game, sequence: &[Cell]) -> Option<Game> {
             .flatten()
             .next()
     })
-        .expect("Failed to start thread scope for solving game")
+    .expect("Failed to start thread scope for solving game")
 }
 
 fn solve_depth(game: &mut Game, sequence: &[Cell], depth: usize) -> bool {
@@ -296,7 +292,6 @@ mod tests {
     use crate::index::BoardIndexer;
 
     use super::{Cell, Game, Token};
-    use super::super::tokenize;
 
     #[test]
     fn full_consistency() {
@@ -307,7 +302,7 @@ mod tests {
     #[test]
     fn row_inconsistency() {
         #[rustfmt::skip]
-            let jig = Game::from(tokenize([
+            let jig = Game::from([
             0, 0, 0, 0, 0, 0, 0, 0, 0,
             0, 0, 0, 0, 0, 0, 0, 0, 0,
             0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -317,7 +312,7 @@ mod tests {
             0, 0, 0, 0, 0, 0, 0, 0, 0,
             0, 0, 0, 0, 0, 0, 0, 0, 0,
             0, 0, 0, 0, 0, 0, 0, 0, 0,
-        ]));
+        ]);
 
         assert!(!super::consistent(&jig, Cell::new(3, 4), Token::One));
     }
@@ -325,7 +320,7 @@ mod tests {
     #[test]
     fn column_inconsistency() {
         #[rustfmt::skip]
-            let jig = Game::from(tokenize([
+            let jig = Game::from([
             0, 0, 0, 4, 0, 0, 0, 0, 0,
             0, 0, 0, 7, 0, 0, 0, 0, 0,
             0, 0, 0, 1, 0, 0, 0, 0, 0,
@@ -335,7 +330,7 @@ mod tests {
             0, 0, 0, 6, 0, 0, 0, 0, 0,
             0, 0, 0, 9, 0, 0, 0, 0, 0,
             0, 0, 0, 3, 0, 0, 0, 0, 0,
-        ]));
+        ]);
 
         assert!(!super::consistent(&jig, Cell::new(3, 3), Token::Nine));
     }
@@ -343,7 +338,7 @@ mod tests {
     #[test]
     fn sector_inconsistency() {
         #[rustfmt::skip]
-            let jig = Game::from(tokenize([
+            let jig = Game::from([
             0, 0, 0, 0, 0, 0, 0, 0, 0,
             0, 0, 0, 0, 0, 0, 0, 0, 0,
             0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -353,7 +348,7 @@ mod tests {
             0, 0, 0, 0, 0, 0, 0, 0, 0,
             0, 0, 0, 0, 0, 0, 0, 0, 0,
             0, 0, 0, 0, 0, 0, 0, 0, 0,
-        ]));
+        ]);
 
         assert!(!super::consistent(&jig, Cell::new(4, 4), Token::Two));
     }
@@ -365,7 +360,7 @@ mod tests {
             game.set_internal(cell, Token::None);
         }
 
-        let solved = super::solve(&game, false);
+        let solved = super::solve(&game, false, true);
         assert!(solved.is_some());
 
         let solved = solved.unwrap();
