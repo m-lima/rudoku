@@ -22,7 +22,7 @@ fn main() {
             let mut i = 0_u16;
             let mut puzzles = [None; 3];
             loop {
-                if i & 0xF == 0 {
+                if i.trailing_zeros() >= 4 {
                     eprintln!("Pruning");
                     puzzles = solved.prune_per_gaps(options.max_difficulty());
                 }

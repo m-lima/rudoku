@@ -10,7 +10,7 @@ pub fn parse() -> Options {
 }
 
 #[derive(Clap, Debug)]
-#[clap(name = "Sudoku")]
+#[clap(name = "Rudoku")]
 pub enum Options {
     /// Generate new puzzles
     Generate(Generate),
